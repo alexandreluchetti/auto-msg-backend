@@ -1,5 +1,6 @@
 package br.com.conversa.app.conversation;
 
+import br.com.conversa.app.ops.OperationsMetrics;
 import br.com.conversa.app.tenant.TenantTransactions;
 import br.com.conversa.core.llm.LlmResponse;
 import br.com.conversa.core.tenant.TenantId;
@@ -23,11 +24,13 @@ class LlmCallRepository implements AssistantEngine.CallLog {
     private final JdbcClient jdbc;
     private final TenantTransactions tenants;
     private final LlmPricing pricing;
+    private final OperationsMetrics metrics;
 
-    LlmCallRepository(JdbcClient jdbc, TenantTransactions tenants, LlmPricing pricing) {
+    LlmCallRepository(JdbcClient jdbc, TenantTransactions tenants, LlmPricing pricing, OperationsMetrics metrics) {
         this.jdbc = jdbc;
         this.tenants = tenants;
         this.pricing = pricing;
+        this.metrics = metrics;
     }
 
     @Override
@@ -57,5 +60,7 @@ class LlmCallRepository implements AssistantEngine.CallLog {
                 .param("cost", cost)
                 .param("duration", duration.toMillis())
                 .update());
+        metrics.llmCall(tenant, response.model(), cost, response.usage().inputTokens(), response.usage().outputTokens(),
+                response.usage().cacheReadTokens(), response.usage().cacheWriteTokens());
     }
 }

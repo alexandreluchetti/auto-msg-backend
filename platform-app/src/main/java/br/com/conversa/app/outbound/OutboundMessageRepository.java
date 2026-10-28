@@ -8,6 +8,8 @@ import java.sql.Types;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Outbox of messages to send (ADR-004). Rows are claimed with a lease instead of a long
@@ -44,6 +46,7 @@ public class OutboundMessageRepository {
             WHERE wamid = :wamid
               AND coalesce(array_position(ARRAY['sent', 'delivered', 'read', 'failed'], delivery_status), 0)
                   < array_position(ARRAY['sent', 'delivered', 'read', 'failed'], CAST(:status AS text))
+            RETURNING tenant_id, pricing_category, billable
             """;
 
     private final JdbcClient jdbc;
@@ -105,14 +108,29 @@ public class OutboundMessageRepository {
                 .param("id", id).param("error", error).update();
     }
 
-    /** Records a status webhook ({@code sent}, {@code delivered}, {@code read}, {@code failed}). */
-    public void updateDeliveryStatus(String wamid, String status, String pricingCategory, Boolean billable) {
-        jdbc.sql(DELIVERY_STATUS)
+    /** A status change that moved the message forward. */
+    public record DeliveryChange(TenantId tenant, String pricingCategory, Boolean billable) {
+    }
+
+    /**
+     * Applies a status webhook ({@code sent}, {@code delivered}, {@code read}, {@code failed}); statuses
+     * only move forward.
+     *
+     * @return the change, or empty when the message is unknown or the status is not newer
+     */
+    public Optional<DeliveryChange> updateDeliveryStatus(String wamid, String status, String pricingCategory,
+                                                         Boolean billable) {
+        return jdbc.sql(DELIVERY_STATUS)
                 .param("wamid", wamid)
                 .param("status", status)
                 .param("category", pricingCategory)
                 .param("billable", billable)
-                .update();
+                .query((rs, row) -> {
+                    UUID tenant = rs.getObject("tenant_id", UUID.class);
+                    return new DeliveryChange(tenant == null ? null : new TenantId(tenant), rs.getString("pricing_category"),
+                            (Boolean) rs.getObject("billable"));
+                })
+                .optional();
     }
 
     private static double seconds(Duration duration) {

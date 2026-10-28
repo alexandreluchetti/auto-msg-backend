@@ -1,5 +1,6 @@
 package br.com.conversa.app.conversation;
 
+import br.com.conversa.app.PrivacyNotices;
 import br.com.conversa.app.TestcontainersConfiguration;
 import br.com.conversa.app.business.BusinessDataImporter;
 import br.com.conversa.app.inbound.InboundWorker;
@@ -147,7 +148,8 @@ class ConversationFlowIT {
         assertThat(graph.requestBodies()).anySatisfy(body -> {
             var json = mapper.readTree(body);
             assertThat(json.path("to").asString()).isEqualTo(CUSTOMER);
-            assertThat(json.path("text").path("body").asString()).isEqualTo("Temos sim! A Pizza Calabresa sai por R$ 39,90.");
+            assertThat(PrivacyNotices.strip(json.path("text").path("body").asString()))
+                    .isEqualTo("Temos sim! A Pizza Calabresa sai por R$ 39,90.");
         });
 
         var request = llm.requests().getFirst();
@@ -234,7 +236,7 @@ class ConversationFlowIT {
 
     private List<String> messages() {
         return jdbc.sql("SELECT direction || ':' || text FROM message ORDER BY created_at")
-                .query(String.class).list();
+                .query(String.class).list().stream().map(PrivacyNotices::strip).toList();
     }
 
     private void postWebhook(byte[] body) throws Exception {

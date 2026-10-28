@@ -194,6 +194,13 @@ versionados.
   `PanelEventStream` (SSE após commit). Contrato: [`docs/api/openapi.yaml`](docs/api/openapi.yaml)
   — mantenha-o em dia ao mudar a API. Testes: `PanelApiIT`, `PanelEventsIT`. Nos testes MockMvc,
   POSTs autenticados precisam de `.with(csrf())`.
+- LGPD e operação (M9): `app.privacy` — `PrivacyService` (aviso na primeira resposta, pedido
+  "apagar meus dados" com confirmação por botão, anonimização em duas fases: dados agora, filas
+  depois do envio da confirmação em `purgeQueues`), `RetentionJob` (diário);
+  `app.ops.OperationsMetrics` (métricas por tenant). Deploy: `deploy/` + [`docs/DEPLOY.md`](docs/DEPLOY.md)
+  (Caddy do repositório do painel, backup diário, Prometheus/Grafana). Testes: `PrivacyFlowIT`,
+  `BackupRestoreIT`. Respostas de teste comparadas por texto devem ignorar o aviso com
+  `PrivacyNotices.strip`.
 - Eval do M5: `AssistantEval` (`eval/restaurant-questions.json`) chama a **API real e gera
   custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
   (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);

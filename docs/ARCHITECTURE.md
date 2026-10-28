@@ -546,6 +546,23 @@ See [ADR-009](adr/ADR-009-separate-frontend-repository.md).
   `data_subject_request` → job that anonymizes the contact, deletes messages and confirms to
   the customer.
 
+**Implemented (M9):**
+
+- **Notice:** the first bot answer to each customer (or the handoff notice) starts with the
+  privacy notice, with the tenant's `privacy.policyUrl` when set, in the same paid message
+  (`PrivacyService.withNotice`, `contact.consent_notice_at`).
+- **Erasure:** a plain request ("apagar meus dados", "excluir meus dados"...) gets a confirmation
+  with buttons; "Sim, apagar" deletes the conversation's messages, clears its state and checkouts,
+  removes address, change and notes from the customer's orders (kept for tax purposes) and
+  anonymizes the contact (`wa_id = erased:<id>`, no name), then confirms. The customer's queue
+  rows (`inbound_event`, `outbound_message`) are anonymized in a second phase, once the
+  confirmation left the outbox, because the 24h window check reads them (`purgeQueues`, every
+  minute). A new message from the same number starts a new contact.
+- **Retention:** `RetentionJob`, daily at 03:30 (São Paulo): after `retention.messageDays`
+  (default 180) messages and queue rows are deleted, old orders lose address, change and notes,
+  old checkouts lose their drafts, and contacts with nothing recent are anonymized; events of
+  unregistered numbers go after 30 days. `llm_call` has no personal data and is kept.
+
 ## 14. Observability
 
 - Structured JSON logs (`logging.structured.format.console=ecs`) with MDC: `tenant_id`,
@@ -555,9 +572,22 @@ See [ADR-009](adr/ADR-009-separate-frontend-repository.md).
 - Metrics: webhook latency, queue lag (age of the oldest event), error rate, LLM tokens/cost per
   tenant, WhatsApp messages per pricing category per tenant, handoff rate.
 - Actuator: `/actuator/health` (liveness/readiness), `/actuator/prometheus`.
+- **Implemented (M9):** `OperationsMetrics` exports, per tenant slug, `conversa_llm_cost_usd`,
+  `conversa_llm_tokens` (by type), `conversa_whatsapp_billable_messages` (delivered and billable,
+  by pricing category), `conversa_handoffs` (by reason), `conversa_orders` and
+  `conversa_orders_value_brl`, plus the gauges `conversa_queue_inbound_lag_seconds`,
+  `conversa_queue_outbound_pending` and `conversa_conversations_human`. Prometheus and the Grafana
+  dashboard "Conversa — operação" are provisioned from `deploy/` (profile `ops`).
 
 ## 15. Deployment
 
 A single VPS with Docker Compose (app + PostgreSQL), TLS through Caddy, daily PostgreSQL backup
 to external storage (e.g. S3-compatible). The app image is built by the multi-stage
 `Dockerfile`. One process comfortably handles the expected volume (≤ 50 orders/day).
+
+**Implemented (M9):** [`deploy/docker-compose.prod.yml`](../deploy/docker-compose.prod.yml) and
+[`DEPLOY.md`](DEPLOY.md): Caddy built from the panel repository (TLS, panel, proxy of `/api`,
+`/webhooks` and the health check), the app, PostgreSQL, a daily `pg_dump` checked with
+`pg_restore --list` and kept 14 days (`deploy/backup/`), an optional rclone copy off the server,
+and optional Prometheus + Grafana. `BackupRestoreIT` restores a backup into a new database with the
+same scripts.

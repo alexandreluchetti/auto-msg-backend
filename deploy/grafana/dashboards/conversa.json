@@ -1,0 +1,102 @@
+{
+  "uid": "conversa-ops",
+  "title": "Conversa — operação",
+  "timezone": "America/Sao_Paulo",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(conversa_llm_cost_usd_total, tenant)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Custo de LLM (24h, US$)",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(conversa_llm_cost_usd_total{tenant=~\"$tenant\"}[24h]))" }],
+      "fieldConfig": { "defaults": { "decimals": 2, "unit": "currencyUSD" } }
+    },
+    {
+      "type": "stat",
+      "title": "Mensagens WhatsApp cobradas (24h)",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(conversa_whatsapp_billable_messages_total{tenant=~\"$tenant\"}[24h]))" }]
+    },
+    {
+      "type": "stat",
+      "title": "Pedidos (24h)",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(conversa_orders_total{tenant=~\"$tenant\"}[24h]))" }]
+    },
+    {
+      "type": "stat",
+      "title": "Valor dos pedidos (24h, R$)",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(increase(conversa_orders_value_brl_total{tenant=~\"$tenant\"}[24h]))" }],
+      "fieldConfig": { "defaults": { "decimals": 2, "unit": "currencyBRL" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Custo de LLM por tenant (US$/h)",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by (tenant) (increase(conversa_llm_cost_usd_total{tenant=~\"$tenant\"}[1h]))", "legendFormat": "{{tenant}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Mensagens cobradas por categoria (/h)",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by (category) (increase(conversa_whatsapp_billable_messages_total{tenant=~\"$tenant\"}[1h]))", "legendFormat": "{{category}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Transbordos para a equipe por motivo (/h)",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by (reason) (increase(conversa_handoffs_total{tenant=~\"$tenant\"}[1h]))", "legendFormat": "{{reason}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Filas",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "conversa_queue_inbound_lag_seconds", "legendFormat": "atraso da entrada (s)" },
+        { "expr": "conversa_queue_outbound_pending", "legendFormat": "saída pendente" },
+        { "expr": "conversa_conversations_human", "legendFormat": "conversas com a equipe" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens de LLM por tipo (/h)",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by (type) (increase(conversa_llm_tokens_total{tenant=~\"$tenant\"}[1h]))", "legendFormat": "{{type}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latência e erros HTTP",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{uri=\"/webhooks/whatsapp\"}[5m])))", "legendFormat": "webhook p95 (s)" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[5m]))", "legendFormat": "erros 5xx (/s)" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+# Production on one VPS (D-008, ARCHITECTURE section 15). See docs/DEPLOY.md.
+#   cd deploy && cp ../.env.example .env   # fill it in
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Optional: --profile ops (Prometheus + Grafana on 127.0.0.1:3000), --profile offsite (rclone copy
+# of the backups to S3-compatible storage).
+name: conversa
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: conversa
+      POSTGRES_USER: conversa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U conversa -d conversa"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: ..
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/conversa
+      DB_USER: conversa
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      SESSION_COOKIE_SECURE: "true"
+    volumes:
+      - ./data:/data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf \"GET /actuator/health HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q UP <&3'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # The panel (static build) and the TLS front door: Caddy gets the certificate for DOMAIN, serves
+  # the panel and proxies /api, /webhooks and the health check to the app.
+  web:
+    build: ${PANEL_BUILD_CONTEXT:-https://github.com/alexandreluchetti/auto-msg-frontend.git#main}
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in deploy/.env}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      APP_UPSTREAM: app:8080
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+  backup:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["sh", "/scripts/run-daily.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: conversa
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: conversa
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_TIME: ${BACKUP_TIME:-06:30}
+    volumes:
+      - ./backup:/scripts:ro
+      - backups:/backups
+
+  offsite:
+    profiles: ["offsite"]
+    image: rclone/rclone:1.71
+    restart: unless-stopped
+    entrypoint: ["sh", "-c", "while true; do rclone copy /backups \"$$BACKUP_RCLONE_REMOTE\" --max-age 48h; sleep 21600; done"]
+    environment:
+      BACKUP_RCLONE_REMOTE: ${BACKUP_RCLONE_REMOTE:-}
+    volumes:
+      - backups:/backups:ro
+      - ./rclone:/config/rclone:ro
+
+  prometheus:
+    profiles: ["ops"]
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=90d"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    profiles: ["ops"]
+    image: grafana/grafana:12.1.0
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD for --profile ops}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  postgres-data:
+  backups:
+  caddy-data:
+  caddy-config:
+  prometheus-data:
+  grafana-data:

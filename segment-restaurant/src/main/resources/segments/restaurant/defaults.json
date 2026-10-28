@@ -3,5 +3,6 @@
   "fulfillment": { "delivery": true, "pickup": true },
   "paymentMethods": ["cash", "card_on_delivery"],
   "staffNumbers": [],
+  "retention": { "messageDays": 180 },
   "handoff": { "pauseMinutes": 60 }
 }

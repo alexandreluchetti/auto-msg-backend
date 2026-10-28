@@ -61,6 +61,23 @@
         "effort": { "enum": ["low", "medium", "high"] }
       }
     },
+    "privacy": {
+      "description": "LGPD: link sent with the notice on the first contact of each customer.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "policyUrl": { "type": "string", "pattern": "^https://", "maxLength": 300 }
+      }
+    },
+    "retention": {
+      "description": "Days messages are kept; orders are kept with personal data removed after them.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messageDays"],
+      "properties": {
+        "messageDays": { "type": "integer", "minimum": 30, "maximum": 3650 }
+      }
+    },
     "handoff": {
       "type": "object",
       "additionalProperties": false,
