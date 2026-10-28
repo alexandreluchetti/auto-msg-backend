@@ -158,7 +158,7 @@ versionados.
 - Webhook (M1): `WhatsAppWebhookController` → `WebhookSignatureVerifier`,
   `WebhookPayloadParser` (chaves `msg:`, `status:`, `echo:`, `<field>:<sha256>`) →
   `InboundEventRepository` (`inbound_event`, `ON CONFLICT DO NOTHING`).
-- Filas (M2): `InboundWorker` → `InboundEventProcessor` (eco-bot, status de entrega) →
+- Filas (M2): `InboundWorker` → `InboundEventProcessor` (mensagens do cliente, status de entrega) →
   `OutboundMessageRepository.enqueue` (chave de idempotência) → `SenderWorker` (lease, janela
   `CustomerServiceWindow`, retry de `WorkerProperties`) → `ChannelGateway`
   (`WhatsAppCloudApiGateway`). Nos ITs, `conversa.workers.enabled=false` e chame `runOnce()`;
@@ -173,6 +173,15 @@ versionados.
   `BOOTSTRAP_DATA_DIR`); ferramentas do restaurante em `segment.restaurant.tool`
   (`search_menu`, `get_business_hours`, `get_delivery_fee`, `get_business_info`), testadas com
   `FakeBusinessDirectory`.
+- Respostas com LLM (M5): `InboundEventProcessor` → `ConversationRepository`
+  (`contact`/`conversation`/`message`, debounce em `reply_due_at`) → `ReplyWorker` →
+  `AssistantEngine` (prompt do pack, histórico, loop de ferramentas, `ToolInputValidator`) →
+  porta `LlmClient` (`platform-core`) → `AnthropicLlmClient`; custo em `llm_call`
+  (`LlmPricing`, `conversa.llm.prices`). Nos testes o modelo é `ScriptedLlm` (nunca a API real).
+- Eval do M5: `AssistantEval` (`eval/restaurant-questions.json`) chama a **API real e gera
+  custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
+  (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);
+  relatório em `platform-app/target/eval-report.md`.
 - Fronteiras de módulos: `ArchitectureTest`.
 - SPIs do núcleo: `SegmentPack`, `Tool`, `ToolInvocation`, `ToolResult` em `platform-core`.
 - Segment Pack de restaurante: `RestaurantSegmentPack`; fiação em `PlatformConfiguration`.

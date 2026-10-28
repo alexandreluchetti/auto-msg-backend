@@ -100,14 +100,15 @@ starts PostgreSQL with Testcontainers.
 | `WHATSAPP_GRAPH_API_URL` | Graph API base URL | `https://graph.facebook.com` |
 | `WHATSAPP_GRAPH_API_VERSION` | Graph API version | `v24.0` |
 | `WORKERS_ENABLED` | Runs the inbound and outbound queue workers | `true` |
-| `ECHO_BOT_ENABLED` | Development aid for the test number: marks each customer text as read and answers `Recebemos: <text>` | `false` |
+| `ASSISTANT_ENABLED` | Bot answers customers (needs `ANTHROPIC_API_KEY`); off only records the messages | `true` |
+| `ASSISTANT_EFFORT` | Default reasoning effort of the assistant (`low`, `medium`, `high`); tenants may override it | `low` |
 | `BOOTSTRAP_TENANT_SLUG` / `BOOTSTRAP_TENANT_NAME` | Tenant created at startup (pilot restaurant; test number in development). Empty slug: no bootstrap | empty |
 | `BOOTSTRAP_TENANT_SEGMENT` | Segment Pack of that tenant | `restaurant` |
 | `BOOTSTRAP_TENANT_CONFIG` | Tenant settings as a JSON object, merged over the pack defaults and validated by its schema; replaces the stored settings on every start | empty (keep stored) |
 | `BOOTSTRAP_PHONE_NUMBER_ID` / `BOOTSTRAP_WABA_ID` | Cloud API number of that tenant | empty |
 | `BOOTSTRAP_ACCESS_TOKEN_REF` | Name of the variable holding that number's token | empty (platform token) |
 | `BOOTSTRAP_DATA_DIR` | Folder with that tenant's spreadsheets (`menu.csv`, `options.csv`, `hours.csv`, `zones.csv`, see [`docs/IMPORT.md`](docs/IMPORT.md)); each file present is imported on every start | empty (no import) |
-| `ANTHROPIC_API_KEY` | Claude API key (from M5) | — |
+| `ANTHROPIC_API_KEY` | Claude API key; without it the bot does not answer | — |
 | `ANTHROPIC_DEFAULT_MODEL` | Default Claude model | `claude-opus-5-5` |
 
 ## Tests

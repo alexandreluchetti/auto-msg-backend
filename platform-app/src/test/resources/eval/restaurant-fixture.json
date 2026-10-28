@@ -1,0 +1,58 @@
+{
+  "config": {
+    "business": {"name": "Cantina da Praça", "address": "Rua Sete de Setembro, 120 - Centro", "city": "Bonfim Paulista"},
+    "assistant": {"name": "Rita", "tone": "friendly"},
+    "fulfillment": {"delivery": true, "pickup": true, "minimumOrder": 30},
+    "paymentMethods": ["cash", "card_on_delivery", "pix_on_delivery"]
+  },
+  "now": "2026-10-28T20:00",
+  "timezone": "America/Sao_Paulo",
+  "menu": [
+    {"code": "P01", "category": "Pizzas", "name": "Pizza Calabresa", "description": "Calabresa fatiada, cebola e azeitonas", "price": "49.90"},
+    {"code": "P02", "category": "Pizzas", "name": "Pizza Margherita", "description": "Mussarela, tomate e manjericão", "price": "52.00"},
+    {"code": "P03", "category": "Pizzas", "name": "Pizza Portuguesa", "description": "Presunto, ovo, cebola, ervilha e mussarela", "price": "56.00"},
+    {"code": "P04", "category": "Pizzas", "name": "Pizza Frango com Catupiry", "description": "Frango desfiado e catupiry", "price": "58.00"},
+    {"code": "P05", "category": "Pizzas", "name": "Pizza Quatro Queijos", "description": "Mussarela, provolone, parmesão e gorgonzola", "price": "59.00", "available": false},
+    {"code": "L01", "category": "Lanches", "name": "X-Burguer", "description": "Pão, hambúrguer e queijo", "price": "24.00"},
+    {"code": "L02", "category": "Lanches", "name": "X-Salada", "description": "Pão, hambúrguer, queijo, alface e tomate", "price": "26.00"},
+    {"code": "L03", "category": "Lanches", "name": "X-Bacon", "description": "Pão, hambúrguer, queijo e bacon", "price": "29.00"},
+    {"code": "PO1", "category": "Porções", "name": "Batata Frita", "description": "500 g", "price": "22.00"},
+    {"code": "PO2", "category": "Porções", "name": "Calabresa Acebolada", "description": "400 g", "price": "32.00"},
+    {"code": "B01", "category": "Bebidas", "name": "Refrigerante Lata", "description": "350 ml", "price": "6.50"},
+    {"code": "B02", "category": "Bebidas", "name": "Refrigerante 2 L", "description": "Coca-Cola ou Guaraná", "price": "14.00"},
+    {"code": "B03", "category": "Bebidas", "name": "Suco Natural de Laranja", "description": "500 ml", "price": "9.00"},
+    {"code": "B04", "category": "Bebidas", "name": "Água sem Gás", "description": "500 ml", "price": "4.00"},
+    {"code": "S01", "category": "Sobremesas", "name": "Pudim de Leite", "description": "Fatia", "price": "12.00"},
+    {"code": "S02", "category": "Sobremesas", "name": "Petit Gâteau", "description": "Com sorvete de creme", "price": "19.00"}
+  ],
+  "options": [
+    {"item": "P01", "group": "Tamanho", "name": "Média (8 fatias)", "delta": "0"},
+    {"item": "P01", "group": "Tamanho", "name": "Grande (12 fatias)", "delta": "12.00"},
+    {"item": "P01", "group": "Borda", "name": "Catupiry", "delta": "8.00"},
+    {"item": "P02", "group": "Tamanho", "name": "Média (8 fatias)", "delta": "0"},
+    {"item": "P02", "group": "Tamanho", "name": "Grande (12 fatias)", "delta": "12.00"},
+    {"item": "P02", "group": "Borda", "name": "Catupiry", "delta": "8.00"},
+    {"item": "P03", "group": "Tamanho", "name": "Média (8 fatias)", "delta": "0"},
+    {"item": "P03", "group": "Tamanho", "name": "Grande (12 fatias)", "delta": "12.00"},
+    {"item": "P04", "group": "Tamanho", "name": "Média (8 fatias)", "delta": "0"},
+    {"item": "P04", "group": "Tamanho", "name": "Grande (12 fatias)", "delta": "12.00"},
+    {"item": "L03", "group": "Adicionais", "name": "Ovo", "delta": "3.00"},
+    {"item": "L03", "group": "Adicionais", "name": "Cheddar", "delta": "4.00"}
+  ],
+  "hours": [
+    {"day": "TUESDAY", "opens": "18:00", "closes": "23:00"},
+    {"day": "WEDNESDAY", "opens": "18:00", "closes": "23:00"},
+    {"day": "THURSDAY", "opens": "18:00", "closes": "23:00"},
+    {"day": "FRIDAY", "opens": "18:00", "closes": "00:30"},
+    {"day": "SATURDAY", "opens": "18:00", "closes": "00:30"},
+    {"day": "SUNDAY", "opens": "11:30", "closes": "15:00"},
+    {"day": "SUNDAY", "opens": "18:00", "closes": "23:00"}
+  ],
+  "zones": [
+    {"neighborhood": "Centro", "fee": "5.00"},
+    {"neighborhood": "Jardim Botânico", "fee": "7.00"},
+    {"neighborhood": "Vila Nova", "fee": "6.00"},
+    {"neighborhood": "Jardim Itaú", "fee": "8.00"},
+    {"neighborhood": "Recreio das Acácias", "fee": "10.00"}
+  ]
+}

@@ -143,8 +143,8 @@ Key points:
 - **Workers implemented (M2):**
   - `InboundWorker` handles one `inbound_event` per transaction (`FOR UPDATE SKIP LOCKED`) in
     arrival order. Statuses update `outbound_message` (`delivery_status` only moves forward,
-    plus `pricing_category`/`billable`). Customer text feeds the development-only echo bot
-    (`ECHO_BOT_ENABLED`), which enqueues a read receipt and a reply. Echoes and other fields
+    plus `pricing_category`/`billable`). Customer messages go to their conversation (M5, see
+    section 5). Echoes and other fields
     are only stored until M6. A failure rolls back and is retried with backoff; after
     `max-attempts` the event is `FAILED`.
   - `SenderWorker` claims due `outbound_message` rows with a lease (`PROCESSING` +
@@ -191,6 +191,32 @@ Details and trade-offs in [ADR-002](adr/ADR-002-conversation-engine.md). Pipelin
 
 Conversation states: `BOT` → `HUMAN` (paused until `paused_until`) → `BOT`; `CLOSED` after
 inactivity.
+
+**Implemented (M5):** steps 1 and 4; guards and flows arrive with M6, M7 and M9.
+
+- `InboundEventProcessor` stores each customer message once in `message` (by wamid), creating
+  `contact` and `conversation`; media become markers (`[áudio]`, `[imagem] <caption>`). When the
+  assistant is on and an LLM is configured, it sets `conversation.reply_due_at = now + debounce`
+  (2 s), so a burst of messages gets one answer.
+- `ReplyWorker` claims due conversations with a lease (owner role, like the queues), and
+  `AssistantEngine` builds the answer outside any transaction: system prompt from the pack
+  (`prompts/system.md`, filled from the tenant configuration), the pack's tools, and the latest 30
+  messages as plain-text turns, with the current time as a block of the last customer turn. The
+  tool loop validates every tool input against its schema (networknt) before running it, allows 4
+  rounds, and replays each model turn unchanged. Refusals get a polite refusal text; failures,
+  empty answers or too many rounds get a fallback text; temporary LLM failures are retried 3 times
+  (5 s apart) first. The answer, its read receipt and the text are stored and enqueued in one
+  tenant transaction, keyed by the last customer wamid (`reply:<conversation>:<wamid>`), so a
+  retry never sends twice; a customer message that arrives meanwhile reschedules the answer.
+- `AnthropicLlmClient` (SDK `anthropic-java`): cache breakpoint on the system prompt plus
+  automatic caching of the history, `output_config.effort` (default `low`, per tenant
+  `llm.effort`), model per tenant (`llm.model`), no sampling parameters, server-side refusal
+  fallback (`fallbacks: "default"`, beta) where the model supports it.
+- Every model call writes `llm_call` (tokens, cache reads/writes, cost in USD from the price table
+  `conversa.llm.prices`, the model that actually answered).
+- Eval: `AssistantEval` runs `eval/restaurant-questions.json` (56 synthetic questions) against the
+  real API and a synthetic restaurant, graded by required tools, expected phrases and "no invented
+  prices", and writes `target/eval-report.md`. It never runs in the build; running it costs money.
 
 ## 6. Human handoff (coexistence)
 

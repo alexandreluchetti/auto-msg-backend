@@ -1,40 +1,48 @@
 package br.com.conversa.app.inbound;
 
+import br.com.conversa.app.conversation.AssistantProperties;
+import br.com.conversa.app.conversation.ConversationRepository;
 import br.com.conversa.app.inbound.InboundEventQueue.ClaimedInbound;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
-import br.com.conversa.app.outbound.OutboundRequest;
+import br.com.conversa.app.tenant.TenantTransactions;
+import br.com.conversa.core.llm.LlmClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+
+import java.time.Instant;
 
 /**
  * Turns one inbound event into its effects, inside the worker's transaction. Every effect is
  * idempotent, so an event processed twice (crash before commit, redelivery) changes nothing.
  *
- * <p>Until the conversation engine exists (M5), customer messages only feed the echo bot, a
- * development aid for the Cloud API test number that is off by default. Echoes from the app and
- * other fields are only stored; handoff uses them in M6.
+ * <p>Customer messages go to their conversation, and the bot's answer is scheduled after the
+ * debounce when the assistant is on and an LLM is configured ({@code ReplyWorker} answers).
+ * Echoes from the app and other fields are only stored; handoff uses them in M6.
  */
 @Component
 class InboundEventProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(InboundEventProcessor.class);
 
-    /** Graph API limit for a text body is 4096 characters; keep room for the prefix. */
-    private static final int MAX_ECHOED_CHARS = 4000;
-
     private final OutboundMessageRepository outbound;
+    private final ConversationRepository conversations;
+    private final TenantTransactions tenants;
+    private final AssistantProperties assistant;
+    private final LlmClient llm;
     private final ObjectMapper mapper;
-    private final boolean echoBotEnabled;
 
-    InboundEventProcessor(OutboundMessageRepository outbound, ObjectMapper mapper,
-                          @Value("${conversa.echo-bot.enabled:false}") boolean echoBotEnabled) {
+    InboundEventProcessor(OutboundMessageRepository outbound, ConversationRepository conversations,
+                          TenantTransactions tenants, AssistantProperties assistant, LlmClient llm,
+                          ObjectMapper mapper) {
         this.outbound = outbound;
+        this.conversations = conversations;
+        this.tenants = tenants;
+        this.assistant = assistant;
+        this.llm = llm;
         this.mapper = mapper;
-        this.echoBotEnabled = echoBotEnabled;
     }
 
     void process(ClaimedInbound event) {
@@ -43,8 +51,8 @@ class InboundEventProcessor {
             case MESSAGE -> {
                 if (event.tenantId() == null) {
                     log.warn("Inbound event {} ignored: no tenant registered for its number", event.id());
-                } else if (echoBotEnabled) {
-                    echo(event, item);
+                } else {
+                    recordCustomerMessage(event, item);
                 }
             }
             case STATUS -> outbound.updateDeliveryStatus(
@@ -59,23 +67,13 @@ class InboundEventProcessor {
         }
     }
 
-    /**
-     * Marks the message as read and repeats its text. The read receipt is sent only because the bot
-     * answers: marking read also clears the unread badge staff rely on in the app.
-     */
-    private void echo(ClaimedInbound event, JsonNode message) {
-        if (!"text".equals(message.path("type").asString())) {
-            return;
-        }
-        String wamid = message.path("id").asString();
-        String body = message.path("text").path("body").asString();
-        if (body.length() > MAX_ECHOED_CHARS) {
-            body = body.substring(0, MAX_ECHOED_CHARS);
-        }
-        outbound.enqueue("read:" + wamid, event.tenantId(),
-                OutboundRequest.readReceipt(event.phoneNumberId(), event.waId(), wamid, mapper));
-        outbound.enqueue("echo-bot:" + wamid, event.tenantId(),
-                OutboundRequest.text(event.phoneNumberId(), event.waId(), "Recebemos: " + body, mapper));
+    private void recordCustomerMessage(ClaimedInbound event, JsonNode message) {
+        String timestamp = message.path("timestamp").asString();
+        Instant sentAt = timestamp.matches("\\d+") ? Instant.ofEpochSecond(Long.parseLong(timestamp)) : Instant.now();
+        boolean answer = assistant.enabled() && llm.configured();
+        tenants.runInTenant(event.tenantId(), () -> conversations.recordCustomerMessage(event.tenantId(),
+                event.phoneNumberId(), event.waId(), message.path("id").asString(), message.path("type").asString(),
+                CustomerText.of(message), sentAt, answer ? assistant.debounce() : null));
     }
 
     private static String textOrNull(JsonNode node) {

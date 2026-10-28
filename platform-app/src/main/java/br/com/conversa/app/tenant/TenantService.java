@@ -76,7 +76,7 @@ public class TenantService {
      */
     public void updateConfig(TenantId tenant, String configJson) {
         tenants.runInTenant(tenant, () -> {
-            SegmentPack pack = packOf(tenant);
+            SegmentPack pack = packInContext(tenant);
             configs.effectiveConfig(pack, configJson);
             jdbc.sql("UPDATE tenant SET config = CAST(:config AS jsonb), updated_at = now() WHERE id = :id")
                     .param("config", configJson)
@@ -91,11 +91,16 @@ public class TenantService {
             String own = jdbc.sql("SELECT config::text FROM tenant WHERE id = :id")
                     .param("id", tenant.value())
                     .query(String.class).single();
-            return configs.effectiveConfig(packOf(tenant), own);
+            return configs.effectiveConfig(packInContext(tenant), own);
         });
     }
 
-    private SegmentPack packOf(TenantId tenant) {
+    /** Segment Pack (and version) the tenant runs on. */
+    public SegmentPack packOf(TenantId tenant) {
+        return tenants.inTenant(tenant, () -> packInContext(tenant));
+    }
+
+    private SegmentPack packInContext(TenantId tenant) {
         record Segment(String segmentId, int segmentVersion) {
         }
         Segment segment = jdbc.sql("SELECT segment_id, segment_version FROM tenant WHERE id = :id")

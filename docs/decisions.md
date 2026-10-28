@@ -71,9 +71,7 @@ through a REST + SSE API (ADR-009).
 - Sending retries: up to 5 attempts for temporary errors (rate limits, Meta or network outages),
   waiting 5 s and doubling, up to 10 minutes; other errors fail at once.
 - Each number may have its own Cloud API token, referenced by name (property or environment
-  variable) and never stored in the database; numbers without one use the platform token. An echo bot
-  ("Recebemos: <text>"), off by default, exists only to test the test number; it is removed when
-  the conversation engine arrives (M5).
+  variable) and never stored in the database; numbers without one use the platform token.
 - Restaurant configuration (pack v1): business name (required), address and city; assistant name
   and tone (friendly, formal, casual); delivery and/or pickup with an optional minimum order;
   payment methods among cash, card on delivery and Pix paid on delivery/pickup (no bot-generated
@@ -87,6 +85,16 @@ through a REST + SSE API (ADR-009).
   registered names and asks the customer to confirm.
 - Until onboarding from the panel exists, the pilot tenant and its number are created at startup
   from environment settings (`BOOTSTRAP_*`).
+- Assistant (M5): answers 2 s after the customer's last message, with the latest 30 messages as
+  context and up to 4 tool rounds. Until checkout exists (M7) it does not take orders: it answers
+  the questions and says the restaurant's staff will continue in the same conversation. Media it
+  cannot read (audio, images) get a request to type. On a refusal it answers "Desculpe, não posso
+  ajudar com isso..." and on failures "Desculpe, não consegui responder agora...". Refused requests
+  are retried by the API on a fallback model where supported.
+- Each business may choose the model (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`)
+  and effort (`low`, `medium`, `high`) of its assistant in its configuration (`llm`).
+- The M5 eval uses 56 synthetic questions over a synthetic restaurant until real, anonymized
+  questions from the pilot replace them.
 - Local development ports: PostgreSQL on `5433`, API on `8081` (5432/8080 are used by other
   local projects).
 

@@ -43,6 +43,17 @@ public interface SegmentPack {
         return resource("defaults.json");
     }
 
+    /**
+     * System prompt of the assistant for a tenant, from {@code prompts/system.md}. It must depend
+     * only on the configuration (never on the time or the conversation), so the provider can cache
+     * it across conversations.
+     *
+     * @param effectiveConfigJson the tenant's effective configuration
+     */
+    default String systemPrompt(String effectiveConfigJson) {
+        return resource("prompts/system.md");
+    }
+
     /** Reads a text resource of this pack. */
     default String resource(String name) {
         String path = resourceBasePath() + name;
