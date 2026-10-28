@@ -9,7 +9,7 @@ import java.util.Objects;
  * @param type          event type
  * @param field         webhook field ({@code messages}, {@code smb_message_echoes}...)
  * @param wabaId        WhatsApp Business Account id ({@code entry.id})
- * @param phoneNumberId business's number; resolves the tenant (M3). May be null for {@link WebhookEventType#OTHER}
+ * @param phoneNumberId business's number; resolves the tenant. May be null for {@link WebhookEventType#OTHER}
  * @param waId          customer's number (PII); null when not applicable
  * @param payloadJson   JSON with the original {@code metadata}, {@code contact} and {@code item}
  */

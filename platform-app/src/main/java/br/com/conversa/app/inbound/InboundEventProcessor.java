@@ -3,6 +3,8 @@ package br.com.conversa.app.inbound;
 import br.com.conversa.app.inbound.InboundEventQueue.ClaimedInbound;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.outbound.OutboundRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -18,6 +20,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Component
 class InboundEventProcessor {
+
+    private static final Logger log = LoggerFactory.getLogger(InboundEventProcessor.class);
 
     /** Graph API limit for a text body is 4096 characters; keep room for the prefix. */
     private static final int MAX_ECHOED_CHARS = 4000;
@@ -37,7 +41,9 @@ class InboundEventProcessor {
         JsonNode item = mapper.readTree(event.payloadJson()).path("item");
         switch (event.type()) {
             case MESSAGE -> {
-                if (echoBotEnabled) {
+                if (event.tenantId() == null) {
+                    log.warn("Inbound event {} ignored: no tenant registered for its number", event.id());
+                } else if (echoBotEnabled) {
                     echo(event, item);
                 }
             }
@@ -66,9 +72,9 @@ class InboundEventProcessor {
         if (body.length() > MAX_ECHOED_CHARS) {
             body = body.substring(0, MAX_ECHOED_CHARS);
         }
-        outbound.enqueue("read:" + wamid,
+        outbound.enqueue("read:" + wamid, event.tenantId(),
                 OutboundRequest.readReceipt(event.phoneNumberId(), event.waId(), wamid, mapper));
-        outbound.enqueue("echo-bot:" + wamid,
+        outbound.enqueue("echo-bot:" + wamid, event.tenantId(),
                 OutboundRequest.text(event.phoneNumberId(), event.waId(), "Recebemos: " + body, mapper));
     }
 

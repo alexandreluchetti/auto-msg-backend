@@ -1,5 +1,6 @@
 package br.com.conversa.app.config;
 
+import br.com.conversa.app.tenant.ChannelAccessTokens;
 import br.com.conversa.channel.whatsapp.WhatsAppProperties;
 import br.com.conversa.channel.whatsapp.send.WhatsAppCloudApiGateway;
 import br.com.conversa.channel.whatsapp.webhook.WebhookPayloadParser;
@@ -33,13 +34,14 @@ class WhatsAppConfiguration {
     }
 
     @Bean
-    ChannelGateway whatsAppGateway(WhatsAppProperties properties, ObjectMapper objectMapper) {
+    ChannelGateway whatsAppGateway(WhatsAppProperties properties, ChannelAccessTokens tokens,
+                                   ObjectMapper objectMapper) {
         if (isBlank(properties.accessToken())) {
-            log.warn("conversa.whatsapp.access-token not set: outbound messages will fail");
+            log.warn("conversa.whatsapp.access-token not set: numbers without their own token cannot send");
         }
         HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
         return new WhatsAppCloudApiGateway(properties.graphApiUrl(), properties.graphApiVersion(),
-                properties.accessToken(), http, objectMapper);
+                tokens::forSender, http, objectMapper);
     }
 
     private static boolean isBlank(String value) {

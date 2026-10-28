@@ -18,6 +18,7 @@ final class FakeGraphApi implements AutoCloseable {
 
     private final HttpServer server;
     private final List<String> requestBodies = new CopyOnWriteArrayList<>();
+    private final List<String> authorizations = new CopyOnWriteArrayList<>();
     private final AtomicInteger sequence = new AtomicInteger();
     private volatile int errorStatus;
     private volatile String errorBody;
@@ -31,6 +32,7 @@ final class FakeGraphApi implements AutoCloseable {
         server.createContext("/", exchange -> {
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             requestBodies.add(body);
+            authorizations.add(exchange.getRequestHeaders().getFirst("Authorization"));
             int status = errorStatus == 0 ? 200 : errorStatus;
             String answer;
             if (errorStatus != 0) {
@@ -67,8 +69,13 @@ final class FakeGraphApi implements AutoCloseable {
         return requestBodies;
     }
 
+    List<String> authorizations() {
+        return authorizations;
+    }
+
     void reset() {
         requestBodies.clear();
+        authorizations.clear();
         sequence.set(0);
         succeed();
     }

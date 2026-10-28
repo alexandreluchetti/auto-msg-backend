@@ -45,3 +45,11 @@ conversa:
     enabled: ${WORKERS_ENABLED:true}
   echo-bot:
     enabled: ${ECHO_BOT_ENABLED:false}
+  bootstrap:
+    slug: ${BOOTSTRAP_TENANT_SLUG:}
+    display-name: ${BOOTSTRAP_TENANT_NAME:}
+    segment: ${BOOTSTRAP_TENANT_SEGMENT:restaurant}
+    config-json: ${BOOTSTRAP_TENANT_CONFIG:}
+    phone-number-id: ${BOOTSTRAP_PHONE_NUMBER_ID:}
+    waba-id: ${BOOTSTRAP_WABA_ID:}
+    access-token-ref: ${BOOTSTRAP_ACCESS_TOKEN_REF:}

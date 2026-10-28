@@ -9,14 +9,16 @@ import java.util.List;
 
 /**
  * Stores webhook events in the {@code inbound_event} queue. Duplicates are ignored through the
- * unique {@code event_key}, because Meta redelivers notifications.
+ * unique {@code event_key}, because Meta redelivers notifications. The tenant is resolved from
+ * the {@code phone_number_id}; it stays null for numbers no tenant registered.
  */
 @Repository
 public class InboundEventRepository {
 
     private static final String INSERT = """
-            INSERT INTO inbound_event (event_key, event_type, field, waba_id, phone_number_id, wa_id, payload)
-            VALUES (:eventKey, :eventType, :field, :wabaId, :phoneNumberId, :waId, CAST(:payload AS jsonb))
+            INSERT INTO inbound_event (event_key, event_type, field, waba_id, phone_number_id, wa_id, tenant_id, payload)
+            VALUES (:eventKey, :eventType, :field, :wabaId, :phoneNumberId, :waId,
+                    channel_tenant_id(:phoneNumberId), CAST(:payload AS jsonb))
             ON CONFLICT (event_key) DO NOTHING
             """;
 

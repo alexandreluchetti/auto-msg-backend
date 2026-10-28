@@ -2,6 +2,10 @@ package br.com.conversa.core.segment;
 
 import br.com.conversa.core.tool.Tool;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -24,5 +28,31 @@ public interface SegmentPack {
 
     default String resourceBasePath() {
         return "segments/" + id() + "/";
+    }
+
+    /** JSON Schema (draft 2020-12) of the tenant configuration, from {@code config-schema.json}. */
+    default String configSchemaJson() {
+        return resource("config-schema.json");
+    }
+
+    /**
+     * Pack defaults, from {@code defaults.json}. A tenant's configuration is merged over them and
+     * the result must satisfy {@link #configSchemaJson()}.
+     */
+    default String defaultConfigJson() {
+        return resource("defaults.json");
+    }
+
+    /** Reads a text resource of this pack. */
+    default String resource(String name) {
+        String path = resourceBasePath() + name;
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream(path)) {
+            if (in == null) {
+                throw new IllegalStateException("Segment pack resource not found: " + path);
+            }
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot read segment pack resource " + path, e);
+        }
     }
 }

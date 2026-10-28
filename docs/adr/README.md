@@ -15,3 +15,4 @@ the [decision log](../decisions.md).
 | [007](ADR-007-modular-monolith.md) | Modular monolith, Maven multi-module, Java 21, Spring Boot 4.1 | Accepted |
 | [008](ADR-008-human-handoff.md) | Handoff through the WhatsApp Business app, paused by echoes | Accepted |
 | [009](ADR-009-separate-frontend-repository.md) | Frontend in a repository separate from the backend | Accepted |
+| [010](ADR-010-rls-enforcement.md) | Enforcing RLS with `SET LOCAL ROLE` and edge lookup functions (refines 003) | Accepted |

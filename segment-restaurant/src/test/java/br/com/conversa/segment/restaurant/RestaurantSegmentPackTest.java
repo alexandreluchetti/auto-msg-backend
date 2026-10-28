@@ -14,4 +14,10 @@ class RestaurantSegmentPackTest {
         assertThat(pack.version()).isEqualTo(1);
         assertThat(pack.resourceBasePath()).isEqualTo("segments/restaurant/");
     }
+
+    @Test
+    void shipsConfigurationSchemaAndDefaults() {
+        assertThat(pack.configSchemaJson()).contains("\"$schema\"", "paymentMethods");
+        assertThat(pack.defaultConfigJson()).contains("\"handoff\"");
+    }
 }
