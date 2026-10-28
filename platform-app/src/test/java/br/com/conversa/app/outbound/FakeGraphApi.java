@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Local stand-in for the Graph API: records requests and answers each message with a new wamid,
  * or with the error set by {@link #failWith}.
  */
-final class FakeGraphApi implements AutoCloseable {
+public final class FakeGraphApi implements AutoCloseable {
 
     private final HttpServer server;
     private final List<String> requestBodies = new CopyOnWriteArrayList<>();
@@ -23,7 +23,7 @@ final class FakeGraphApi implements AutoCloseable {
     private volatile int errorStatus;
     private volatile String errorBody;
 
-    FakeGraphApi() {
+    public FakeGraphApi() {
         try {
             server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         } catch (IOException e) {
@@ -52,7 +52,7 @@ final class FakeGraphApi implements AutoCloseable {
         server.start();
     }
 
-    String baseUrl() {
+    public String baseUrl() {
         return "http://127.0.0.1:" + server.getAddress().getPort();
     }
 
@@ -65,7 +65,7 @@ final class FakeGraphApi implements AutoCloseable {
         this.errorStatus = 0;
     }
 
-    List<String> requestBodies() {
+    public List<String> requestBodies() {
         return requestBodies;
     }
 
@@ -73,7 +73,7 @@ final class FakeGraphApi implements AutoCloseable {
         return authorizations;
     }
 
-    void reset() {
+    public void reset() {
         requestBodies.clear();
         authorizations.clear();
         sequence.set(0);

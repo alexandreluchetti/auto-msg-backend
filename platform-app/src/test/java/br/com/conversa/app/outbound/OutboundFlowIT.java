@@ -41,7 +41,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "conversa.whatsapp.app-secret=" + OutboundFlowIT.APP_SECRET,
         "conversa.whatsapp.access-token=it-platform-token",
         "IT_PILOT_TOKEN=it-pilot-token",
-        "conversa.echo-bot.enabled=true",
         "conversa.workers.enabled=false",
         "conversa.workers.max-attempts=2",
         "conversa.workers.retry-base-delay=0s"
@@ -106,7 +105,7 @@ class OutboundFlowIT {
     }
 
     @Test
-    void echoBotAnswersOnceEvenWhenTheMessageIsRedelivered() throws Exception {
+    void customerMessagesAreStoredOnceAndNotAnsweredWithoutAnLlm() throws Exception {
         byte[] webhook = textMessage("wamid.IN0001", CUSTOMER, Instant.now(), "Vocês abrem hoje?");
 
         postWebhook(webhook);
@@ -114,20 +113,21 @@ class OutboundFlowIT {
         postWebhook(webhook);
         inboundWorker.runOnce();
 
-        assertThat(senderWorker.runOnce()).isEqualTo(2);
+        assertThat(jdbc.sql("SELECT text FROM message").query(String.class).list()).containsExactly("Vocês abrem hoje?");
+        assertThat(jdbc.sql("SELECT reply_due_at IS NULL FROM conversation").query(Boolean.class).single()).isTrue();
         assertThat(senderWorker.runOnce()).isZero();
+        assertThat(graph.requestBodies()).isEmpty();
+    }
 
-        assertThat(graph.requestBodies()).hasSize(2);
-        assertThat(graph.requestBodies()).anySatisfy(body ->
-                assertThat(mapper.readTree(body).path("message_id").asString()).isEqualTo("wamid.IN0001"));
-        assertThat(graph.requestBodies()).anySatisfy(body -> {
-            var json = mapper.readTree(body);
-            assertThat(json.path("to").asString()).isEqualTo(CUSTOMER);
-            assertThat(json.path("text").path("body").asString()).isEqualTo("Recebemos: Vocês abrem hoje?");
-        });
-        assertThat(rows()).extracting(row -> row.get("kind") + ":" + row.get("status"))
-                .containsExactly("READ:SENT", "TEXT:SENT");
-        assertThat(rows().get(1).get("wamid")).isEqualTo("wamid.OUT1");
+    @Test
+    void sendsWithTheTokenOfTheSendingNumber() {
+        outbound.enqueue("k0", tenant, OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "aviso", "pt_BR",
+                List.of(), mapper));
+
+        senderWorker.runOnce();
+
+        assertThat(rows()).extracting(row -> row.get("kind") + ":" + row.get("status")).containsExactly("TEMPLATE:SENT");
+        assertThat(rows().getFirst().get("wamid")).isEqualTo("wamid.OUT1");
         assertThat(graph.authorizations()).containsOnly("Bearer it-pilot-token");
         assertThat(jdbc.sql("SELECT DISTINCT tenant_id FROM outbound_message").query(java.util.UUID.class).list())
                 .containsExactly(tenant.value());

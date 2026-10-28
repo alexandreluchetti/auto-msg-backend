@@ -1,6 +1,7 @@
 package br.com.conversa.app.config;
 
 import br.com.conversa.app.WorkerProperties;
+import br.com.conversa.app.conversation.ReplyWorker;
 import br.com.conversa.app.inbound.InboundWorker;
 import br.com.conversa.app.outbound.SenderWorker;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
@@ -29,10 +30,12 @@ class WorkerConfiguration {
 
         private final InboundWorker inbound;
         private final SenderWorker sender;
+        private final ReplyWorker replies;
 
-        Schedule(InboundWorker inbound, SenderWorker sender) {
+        Schedule(InboundWorker inbound, SenderWorker sender, ReplyWorker replies) {
             this.inbound = inbound;
             this.sender = sender;
+            this.replies = replies;
         }
 
         @Scheduled(fixedDelayString = "${conversa.workers.poll-interval:500ms}")
@@ -43,6 +46,11 @@ class WorkerConfiguration {
         @Scheduled(fixedDelayString = "${conversa.workers.poll-interval:500ms}")
         void pollOutbound() {
             sender.runOnce();
+        }
+
+        @Scheduled(fixedDelayString = "${conversa.workers.poll-interval:500ms}")
+        void pollReplies() {
+            replies.runOnce();
         }
     }
 }
