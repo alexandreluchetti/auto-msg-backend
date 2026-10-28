@@ -1,8 +1,18 @@
-target/
-!.mvn/wrapper/maven-wrapper.jar
+# Environment / secrets
+.env
+secrets/
+
+# IDE
 .idea/
 *.iml
 .vscode/
+
+# OS
 .DS_Store
-.env
+Thumbs.db
+
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
 *.log

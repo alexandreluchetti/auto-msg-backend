@@ -1,18 +1,18 @@
 package br.com.conversa.core.tool;
 
 /**
- * Ação que o motor de conversa pode executar a pedido do LLM ou de um fluxo.
- * Ferramentas são a única fonte de fatos de negócio (preço, horário, taxa). Ver ADR-002.
+ * Action the conversation engine may run on behalf of the LLM or a flow.
+ * Tools are the only source of business facts (price, opening hours, fee). See ADR-002.
  */
 public interface Tool {
 
-    /** Nome exposto ao LLM, em snake_case, ex.: {@code search_menu}. */
+    /** Name exposed to the LLM, in snake_case, e.g. {@code search_menu}. */
     String name();
 
-    /** Descrição para o LLM: quando usar e o que retorna. */
+    /** Description for the LLM: when to use it and what it returns. */
     String description();
 
-    /** JSON Schema do input (objeto com {@code additionalProperties: false}). */
+    /** JSON Schema of the input (object with {@code additionalProperties: false}). */
     String inputSchema();
 
     ToolResult execute(ToolInvocation invocation);

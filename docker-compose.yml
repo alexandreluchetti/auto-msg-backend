@@ -1,5 +1,5 @@
 name: auto-msg-backend
-# Dependências locais. A app roda pelo IDE/mvnw; para subir a app em container também:
+# Local dependencies. The app runs from the IDE/mvnw; to also run the app in a container:
 #   docker compose --profile app up --build
 services:
   postgres:

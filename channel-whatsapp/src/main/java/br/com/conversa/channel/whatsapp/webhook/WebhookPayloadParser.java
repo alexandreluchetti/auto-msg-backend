@@ -14,8 +14,8 @@ import java.util.HexFormat;
 import java.util.List;
 
 /**
- * Divide uma notificação do webhook da Cloud API em eventos atômicos com chave de idempotência.
- * Não interpreta o conteúdo das mensagens; isso é papel do worker (M2+).
+ * Splits a Cloud API webhook notification into atomic events with an idempotency key.
+ * It does not interpret message content; that is the worker's job (M2+).
  */
 public final class WebhookPayloadParser {
 
@@ -32,17 +32,17 @@ public final class WebhookPayloadParser {
     }
 
     /**
-     * @throws InvalidWebhookPayloadException se o corpo não for JSON ou não for uma notificação de WABA
+     * @throws InvalidWebhookPayloadException if the body is not JSON or not a WABA notification
      */
     public List<WebhookEvent> parse(byte[] rawBody) {
         JsonNode root;
         try {
             root = mapper.readTree(rawBody);
         } catch (JacksonException e) {
-            throw new InvalidWebhookPayloadException("Corpo do webhook não é JSON válido", e);
+            throw new InvalidWebhookPayloadException("Webhook body is not valid JSON", e);
         }
         if (root == null || !OBJECT_TYPE.equals(textOrNull(root.path("object")))) {
-            throw new InvalidWebhookPayloadException("Objeto do webhook não suportado");
+            throw new InvalidWebhookPayloadException("Unsupported webhook object");
         }
 
         List<WebhookEvent> events = new ArrayList<>();
@@ -80,7 +80,7 @@ public final class WebhookPayloadParser {
                             field, wabaId, phoneNumberId, textOrNull(echo.path("to")), metadata, null, echo));
                 }
             }
-            // Conteúdo sem id próprio: a chave é o hash do change, estável entre reentregas.
+            // Content without its own id: the key is the hash of the change, stable across redeliveries.
             default -> events.add(event(
                     (field == null ? "unknown" : field) + ":" + sha256(change.toString()),
                     WebhookEventType.OTHER, field, wabaId, phoneNumberId, null, metadata, null, value));
@@ -115,7 +115,7 @@ public final class WebhookPayloadParser {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 indisponível", e);
+            throw new IllegalStateException("SHA-256 unavailable", e);
         }
     }
 }

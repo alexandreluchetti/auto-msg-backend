@@ -3,15 +3,15 @@ package br.com.conversa.channel.whatsapp.webhook;
 import java.util.Objects;
 
 /**
- * Evento atômico extraído de uma notificação do webhook. Uma notificação pode conter vários.
+ * Atomic event extracted from a webhook notification. One notification may contain several.
  *
- * @param eventKey      chave de idempotência; a Meta reentrega notificações e duplicatas são esperadas
- * @param type          tipo do evento
- * @param field         campo do webhook ({@code messages}, {@code smb_message_echoes}...)
- * @param wabaId        id da WhatsApp Business Account ({@code entry.id})
- * @param phoneNumberId número da empresa; resolve o tenant (M3). Pode ser nulo em {@link WebhookEventType#OTHER}
- * @param waId          número do cliente (PII); nulo quando não se aplica
- * @param payloadJson   JSON com {@code metadata}, {@code contact} e {@code item} originais
+ * @param eventKey      idempotency key; Meta redelivers notifications and duplicates are expected
+ * @param type          event type
+ * @param field         webhook field ({@code messages}, {@code smb_message_echoes}...)
+ * @param wabaId        WhatsApp Business Account id ({@code entry.id})
+ * @param phoneNumberId business's number; resolves the tenant (M3). May be null for {@link WebhookEventType#OTHER}
+ * @param waId          customer's number (PII); null when not applicable
+ * @param payloadJson   JSON with the original {@code metadata}, {@code contact} and {@code item}
  */
 public record WebhookEvent(
         String eventKey,

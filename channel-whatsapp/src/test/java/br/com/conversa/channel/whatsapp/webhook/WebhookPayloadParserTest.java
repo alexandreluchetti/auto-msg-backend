@@ -99,7 +99,7 @@ class WebhookPayloadParserTest {
     static byte[] fixture(String name) {
         try (InputStream in = WebhookPayloadParserTest.class.getResourceAsStream("/whatsapp/" + name)) {
             if (in == null) {
-                throw new IllegalArgumentException("Fixture não encontrada: " + name);
+                throw new IllegalArgumentException("Fixture not found: " + name);
             }
             return in.readAllBytes();
         } catch (IOException e) {

@@ -8,7 +8,7 @@ import com.tngtech.archunit.lang.ArchRule;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
- * Fronteiras entre módulos (ADR-007): segmentos e adaptadores dependem só do core.
+ * Module boundaries (ADR-007): segments and adapters depend only on the core.
  */
 @AnalyzeClasses(packages = "br.com.conversa", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {

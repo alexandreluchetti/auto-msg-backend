@@ -8,8 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Grava eventos do webhook na fila {@code inbound_event}. Duplicatas são ignoradas pelo
- * {@code event_key} único, porque a Meta reentrega notificações.
+ * Stores webhook events in the {@code inbound_event} queue. Duplicates are ignored through the
+ * unique {@code event_key}, because Meta redelivers notifications.
  */
 @Repository
 public class InboundEventRepository {
@@ -27,7 +27,7 @@ public class InboundEventRepository {
     }
 
     /**
-     * @return quantos eventos eram novos (os demais já estavam gravados)
+     * @return how many events were new (the others were already stored)
      */
     @Transactional
     public int saveAll(List<WebhookEvent> events) {

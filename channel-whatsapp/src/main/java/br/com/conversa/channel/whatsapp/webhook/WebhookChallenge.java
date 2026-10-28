@@ -5,8 +5,8 @@ import java.security.MessageDigest;
 import java.util.Optional;
 
 /**
- * Verificação do webhook (GET) feita pela Meta ao cadastrar a URL de callback.
- * Devolve o {@code hub.challenge} somente se o modo for {@code subscribe} e o token conferir.
+ * Webhook verification (GET) Meta performs when the callback URL is registered.
+ * Returns {@code hub.challenge} only if the mode is {@code subscribe} and the token matches.
  */
 public final class WebhookChallenge {
 

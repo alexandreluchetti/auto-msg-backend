@@ -16,7 +16,7 @@
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Conversa :: Parent</name>
-    <description>Plataforma multi-tenant de atendimento automatizado no WhatsApp</description>
+    <description>Multi-tenant platform for automated WhatsApp customer service</description>
 
     <modules>
         <module>platform-core</module>

@@ -12,5 +12,5 @@
 
     <artifactId>platform-core</artifactId>
     <name>Conversa :: Platform Core</name>
-    <description>Kernel do domínio e SPIs. Java puro, sem Spring.</description>
+    <description>Domain kernel and SPIs. Plain Java, no Spring.</description>
 </project>

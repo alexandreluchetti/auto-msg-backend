@@ -5,21 +5,21 @@ import br.com.conversa.core.tool.Tool;
 import java.util.List;
 
 /**
- * SPI de um segmento de negócio (restaurante, clínica, salão...).
+ * SPI of a business segment (restaurant, clinic, salon...).
  *
- * <p>Um pack fornece ferramentas e, em {@code classpath:segments/<id>/}, fluxos, prompts,
- * schema e defaults de configuração. Cada tenant escolhe um pack e uma versão e o customiza
- * por configuração. Ver ADR-003.
+ * <p>A pack provides tools and, in {@code classpath:segments/<id>/}, flows, prompts,
+ * configuration schema and defaults. Each tenant picks a pack and a version and customizes it
+ * through configuration. See ADR-003.
  */
 public interface SegmentPack {
 
-    /** Identificador estável, ex.: {@code "restaurant"}. */
+    /** Stable identifier, e.g. {@code "restaurant"}. */
     String id();
 
-    /** Versão do pack; tenants fixam a versão que usam. */
+    /** Pack version; tenants pin the version they use. */
     int version();
 
-    /** Ferramentas que o LLM e os fluxos podem chamar para tenants deste segmento. */
+    /** Tools the LLM and the flows may call for tenants of this segment. */
     List<Tool> tools();
 
     default String resourceBasePath() {

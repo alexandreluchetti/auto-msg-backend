@@ -12,7 +12,7 @@
 
     <artifactId>segment-restaurant</artifactId>
     <name>Conversa :: Segment Restaurant</name>
-    <description>Segment Pack de restaurante: ferramentas, fluxos, prompts e schema de configuração.</description>
+    <description>Restaurant Segment Pack: tools, flows, prompts and configuration schema.</description>
 
     <dependencies>
         <dependency>

@@ -3,7 +3,7 @@ package br.com.conversa.app;
 import org.springframework.boot.SpringApplication;
 
 /**
- * Sobe a aplicação localmente com Postgres em Testcontainers, sem docker-compose.
+ * Runs the application locally with PostgreSQL in Testcontainers, without docker-compose.
  */
 public class TestConversaApplication {
 

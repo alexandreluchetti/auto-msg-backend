@@ -6,8 +6,8 @@ import br.com.conversa.core.tool.Tool;
 import java.util.List;
 
 /**
- * Segment Pack de restaurante. Ferramentas (cardápio, taxa de entrega, carrinho) entram a
- * partir do M4; ver docs/ROADMAP.md.
+ * Restaurant Segment Pack. Tools (menu, delivery fee, cart) arrive from M4 on; see
+ * docs/ROADMAP.md.
  */
 public final class RestaurantSegmentPack implements SegmentPack {
 

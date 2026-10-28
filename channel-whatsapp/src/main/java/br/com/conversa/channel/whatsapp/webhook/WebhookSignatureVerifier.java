@@ -8,8 +8,8 @@ import java.security.MessageDigest;
 import java.util.HexFormat;
 
 /**
- * Valida o header {@code X-Hub-Signature-256}: HMAC-SHA256 do corpo cru com o app secret.
- * Falha fechada: sem segredo configurado, nenhuma assinatura é aceita. Ver ADR-001.
+ * Validates the {@code X-Hub-Signature-256} header: HMAC-SHA256 of the raw body with the app secret.
+ * Fails closed: without a configured secret, no signature is accepted. See ADR-001.
  */
 public final class WebhookSignatureVerifier {
 
@@ -42,7 +42,7 @@ public final class WebhookSignatureVerifier {
             mac.init(new SecretKeySpec(appSecret, ALGORITHM));
             return mac.doFinal(body);
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("HmacSHA256 indisponível", e);
+            throw new IllegalStateException("HmacSHA256 unavailable", e);
         }
     }
 }

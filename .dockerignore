@@ -1,5 +1,10 @@
 **/target/
 .git/
+.github/
 .idea/
+.claude/
+.vscode/
+secrets/
 .env
+*.log
 docs/
