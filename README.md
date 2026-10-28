@@ -42,7 +42,7 @@ The project is split into two repositories inside `auto-msg/`:
 | Repository | Content |
 |---|---|
 | `auto-msg-backend` (this one) | Platform, WhatsApp and LLM integrations, REST/SSE API |
-| `auto-msg-frontend` | Staff web panel — created in M8 (see [ADR-009](docs/adr/ADR-009-separate-frontend-repository.md)) |
+| [`auto-msg-frontend`](https://github.com/alexandreluchetti/auto-msg-frontend) | Staff web panel (React + Vite + TypeScript, public; see [ADR-009](docs/adr/ADR-009-separate-frontend-repository.md), D-010) |
 
 ## Stack
 
