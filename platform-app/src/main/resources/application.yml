@@ -55,6 +55,9 @@ conversa:
   handoff:
     staff-alert-template: ${HANDOFF_STAFF_ALERT_TEMPLATE:}
     staff-alert-language: ${HANDOFF_STAFF_ALERT_LANGUAGE:pt_BR}
+  orders:
+    staff-alert-template: ${ORDERS_STAFF_ALERT_TEMPLATE:}
+    staff-alert-language: ${ORDERS_STAFF_ALERT_LANGUAGE:pt_BR}
   workers:
     enabled: ${WORKERS_ENABLED:true}
   bootstrap:

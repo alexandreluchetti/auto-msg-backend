@@ -34,6 +34,17 @@ final class CustomerText {
         };
     }
 
+    /** Id of the reply button or list row the customer tapped, or {@code null}. */
+    static String replyId(JsonNode message) {
+        JsonNode interactive = message.path("interactive");
+        for (String kind : new String[] {"button_reply", "list_reply"}) {
+            if (interactive.path(kind).path("id").isString()) {
+                return interactive.path(kind).path("id").asString();
+            }
+        }
+        return null;
+    }
+
     private static String withCaption(String marker, JsonNode media) {
         String caption = media.path("caption").asString("");
         return caption.isBlank() ? marker : marker + " " + caption;

@@ -64,6 +64,24 @@ class WhatsAppCloudApiGatewayTest {
     }
 
     @Test
+    void sendsReplyButtons() {
+        gateway.send(PHONE_NUMBER_ID, new OutboundMessage.Buttons(CUSTOMER, "Está tudo certo?", List.of(
+                new OutboundMessage.Button("confirm:1", "Confirmar pedido"),
+                new OutboundMessage.Button("edit:1", "Alterar"))));
+
+        JsonNode body = mapper.readTree(graph.requests().getFirst().body());
+        assertThat(body.path("type").asString()).isEqualTo("interactive");
+        JsonNode interactive = body.path("interactive");
+        assertThat(interactive.path("type").asString()).isEqualTo("button");
+        assertThat(interactive.path("body").path("text").asString()).isEqualTo("Está tudo certo?");
+        JsonNode first = interactive.path("action").path("buttons").path(0);
+        assertThat(first.path("type").asString()).isEqualTo("reply");
+        assertThat(first.path("reply").path("id").asString()).isEqualTo("confirm:1");
+        assertThat(first.path("reply").path("title").asString()).isEqualTo("Confirmar pedido");
+        assertThat(interactive.path("action").path("buttons")).hasSize(2);
+    }
+
+    @Test
     void marksMessageAsRead() {
         graph.respond(200, "{\"success\":true}");
 

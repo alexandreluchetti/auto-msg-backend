@@ -21,7 +21,13 @@ import java.util.UUID;
 public class ConversationRepository {
 
     /** A stored message as the engine reads it back. */
-    public record StoredMessage(String direction, String author, String wamid, String text, Instant sentAt) {
+    /** @param replyId id of the button the customer tapped, if the message is a tap */
+    public record StoredMessage(String direction, String author, String wamid, String text, Instant sentAt,
+                                String replyId) {
+
+        public StoredMessage(String direction, String author, String wamid, String text, Instant sentAt) {
+            this(direction, author, wamid, text, sentAt, null);
+        }
 
         public boolean fromCustomer() {
             return "IN".equals(direction);
@@ -51,10 +57,11 @@ public class ConversationRepository {
      * @return the conversation id
      */
     public UUID recordCustomerMessage(TenantId tenant, String phoneNumberId, String waId, String displayName,
-                                      String wamid, String type, String text, Instant sentAt, Duration answerAfter) {
+                                      String wamid, String type, String text, String replyId, Instant sentAt,
+                                      Duration answerAfter) {
         UUID conversation = conversationOf(tenant, phoneNumberId, waId, displayName);
         boolean inserted = insertMessage(tenant, conversation, "msg:" + wamid, "IN", "CUSTOMER", wamid, type, text,
-                sentAt);
+                replyId, sentAt);
         if (inserted) {
             jdbc.sql("""
                             UPDATE conversation SET state = 'BOT', paused_until = NULL, updated_at = now()
@@ -85,7 +92,7 @@ public class ConversationRepository {
                                      String text, Instant sentAt) {
         UUID conversation = conversationOf(tenant, phoneNumberId, waId, null);
         return new StaffEcho(conversation,
-                insertMessage(tenant, conversation, "echo:" + wamid, "OUT", "STAFF", wamid, type, text, sentAt));
+                insertMessage(tenant, conversation, "echo:" + wamid, "OUT", "STAFF", wamid, type, text, null, sentAt));
     }
 
     public record StaffEcho(UUID conversationId, boolean isNew) {
@@ -194,7 +201,7 @@ public class ConversationRepository {
      */
     public List<StoredMessage> recentMessages(UUID conversation, int limit) {
         List<StoredMessage> newestFirst = jdbc.sql("""
-                        SELECT direction, author, wamid, text, sent_at FROM message
+                        SELECT direction, author, wamid, text, sent_at, reply_id FROM message
                         WHERE conversation_id = :id
                         ORDER BY created_at DESC
                         LIMIT :limit
@@ -203,7 +210,7 @@ public class ConversationRepository {
                 .param("limit", limit)
                 .query((rs, row) -> new StoredMessage(rs.getString("direction"), rs.getString("author"),
                         rs.getString("wamid"), rs.getString("text"),
-                        rs.getObject("sent_at", OffsetDateTime.class).toInstant()))
+                        rs.getObject("sent_at", OffsetDateTime.class).toInstant(), rs.getString("reply_id")))
                 .list();
         return newestFirst.reversed();
     }
@@ -214,7 +221,7 @@ public class ConversationRepository {
      * @return false when that answer was already stored (a retried reply)
      */
     public boolean recordBotMessage(TenantId tenant, UUID conversation, String ref, String text, Instant sentAt) {
-        return insertMessage(tenant, conversation, ref, "OUT", "BOT", null, "text", text, sentAt);
+        return insertMessage(tenant, conversation, ref, "OUT", "BOT", null, "text", text, null, sentAt);
     }
 
     private UUID conversationOf(TenantId tenant, String phoneNumberId, String waId, String displayName) {
@@ -241,10 +248,12 @@ public class ConversationRepository {
     }
 
     private boolean insertMessage(TenantId tenant, UUID conversation, String ref, String direction, String author,
-                                  String wamid, String type, String text, Instant sentAt) {
+                                  String wamid, String type, String text, String replyId, Instant sentAt) {
         return jdbc.sql("""
-                        INSERT INTO message (tenant_id, conversation_id, ref, direction, author, wamid, type, text, sent_at)
-                        VALUES (:tenant, :conversation, :ref, :direction, :author, :wamid, :type, :text, :sentAt)
+                        INSERT INTO message (tenant_id, conversation_id, ref, direction, author, wamid, type, text, reply_id,
+                                             sent_at)
+                        VALUES (:tenant, :conversation, :ref, :direction, :author, :wamid, :type, :text, :replyId,
+                                :sentAt)
                         ON CONFLICT (conversation_id, ref) DO NOTHING
                         """)
                 .param("tenant", tenant.value())
@@ -255,6 +264,7 @@ public class ConversationRepository {
                 .param("wamid", wamid)
                 .param("type", type)
                 .param("text", text)
+                .param("replyId", replyId)
                 .param("sentAt", OffsetDateTime.ofInstant(sentAt, ZoneOffset.UTC))
                 .update() > 0;
     }

@@ -86,9 +86,7 @@ through a REST + SSE API (ADR-009).
 - Until onboarding from the panel exists, the pilot tenant and its number are created at startup
   from environment settings (`BOOTSTRAP_*`).
 - Assistant (M5): answers 2 s after the customer's last message, with the latest 30 messages as
-  context and up to 4 tool rounds. Until checkout exists (M7) it does not take orders: it answers
-  the questions and says the restaurant's staff will continue in the same conversation. Media it
-  cannot read (audio, images) get a request to type. On a refusal it answers "Desculpe, não posso
+  context and up to 4 tool rounds. Media it cannot read (audio, images) get a request to type. On a refusal it answers "Desculpe, não posso
   ajudar com isso..." and on failures "Desculpe, não consegui responder agora...". Refused requests
   are retried by the API on a fallback model where supported.
 - Each business may choose the model (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`)
@@ -96,7 +94,7 @@ through a REST + SSE API (ADR-009).
 - The M5 eval uses 56 synthetic questions over a synthetic restaurant until real, anonymized
   questions from the pilot replace them.
 - Handoff (M6): the bot hands over when the customer plainly asks for a person, when the assistant
-  decides it (`request_human`: orders until M7, complaints, questions about an existing order,
+  decides it (`request_human`: complaints, questions about an existing order,
   anything it cannot solve) or after 2 answers in a row it could not give. The customer gets
   "Certo! Vou chamar alguém da equipe para continuar o seu atendimento por aqui. É só aguardar um
   pouquinho." Staff alerts show the customer's WhatsApp name and only the last 4 digits of the
@@ -104,6 +102,16 @@ through a REST + SSE API (ADR-009).
 - Staff alert template to submit to Meta (utility, pt_BR), name configured in
   `HANDOFF_STAFF_ALERT_TEMPLATE`, suggested body: "Novo atendimento para a equipe: {{1}} — {{2}}.
   Responda pelo WhatsApp Business." Until it is approved, alerts are not sent by WhatsApp.
+- Orders (M7): the assistant fills the cart and asks only for what is missing; prices, fees and
+  totals always come from the catalog and zones. The minimum order applies to the items subtotal
+  of delivery orders (not to pickup, fee not included). Cash orders need the note the customer pays
+  with or "no change needed". While opening hours are registered, orders are only closed when the
+  restaurant is open. The customer confirms only by tapping "Confirmar pedido" on the latest
+  summary; a summary is no longer valid once the cart changes; a second tap creates nothing.
+  Orders are numbered per restaurant (#1, #2...) and start as `RECEIVED`.
+- New-order template to submit to Meta (utility, pt_BR), name in `ORDERS_STAFF_ALERT_TEMPLATE`,
+  suggested body: "Novo pedido {{1}} de {{2}} — {{3}}, total {{4}}. Veja no painel ou no WhatsApp
+  Business." Until it is approved, staff see orders in the conversation and, from M8, the panel.
 - Local development ports: PostgreSQL on `5433`, API on `8081` (5432/8080 are used by other
   local projects).
 

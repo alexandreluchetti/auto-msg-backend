@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RestaurantSegmentPackTest {
 
     private final RestaurantSegmentPack pack =
-            new RestaurantSegmentPack(new FakeBusinessDirectory(), tenant -> "{}", Clock.systemUTC());
+            new RestaurantSegmentPack(new FakeBusinessDirectory(), tenant -> "{}", null, Clock.systemUTC());
 
     @Test
     void exposesStableIdentity() {
@@ -29,7 +29,8 @@ class RestaurantSegmentPackTest {
     @Test
     void exposesTheReadTools() {
         assertThat(pack.tools()).extracting(Tool::name)
-                .containsExactly("search_menu", "get_business_hours", "get_delivery_fee", "get_business_info");
+                .containsExactly("search_menu", "get_business_hours", "get_delivery_fee", "get_business_info",
+                        "add_to_cart", "update_cart", "view_cart", "set_fulfillment", "set_payment", "start_checkout");
         assertThat(pack.tools()).allSatisfy(tool -> {
             assertThat(tool.name()).matches("[a-z_]+");
             assertThat(tool.description()).isNotBlank();

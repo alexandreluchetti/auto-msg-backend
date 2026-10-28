@@ -8,6 +8,7 @@ import br.com.conversa.core.llm.LlmMessage;
 import br.com.conversa.core.llm.LlmRequest;
 import br.com.conversa.core.llm.LlmResponse;
 import br.com.conversa.core.llm.ToolSpec;
+import br.com.conversa.core.order.CheckoutRequest;
 import br.com.conversa.core.segment.SegmentPack;
 import br.com.conversa.core.tenant.TenantId;
 import br.com.conversa.core.tool.Tool;
@@ -77,13 +78,17 @@ public class AssistantEngine {
                        List<StoredMessage> history, String defaultModel, boolean lastAttempt) {
     }
 
-    public enum Outcome { ANSWERED, REFUSED, FALLBACK, HANDOFF }
+    public enum Outcome { ANSWERED, REFUSED, FALLBACK, HANDOFF, CHECKOUT }
 
-    /** {@code handoffDetail} is the assistant's reason when the outcome is {@link Outcome#HANDOFF}. */
-    public record Answer(String text, Outcome outcome, List<String> toolsCalled, String handoffDetail) {
+    /**
+     * @param handoffDetail the assistant's reason when the outcome is {@link Outcome#HANDOFF}
+     * @param checkout      the order summary to show when the outcome is {@link Outcome#CHECKOUT}
+     */
+    public record Answer(String text, Outcome outcome, List<String> toolsCalled, String handoffDetail,
+                         CheckoutRequest checkout) {
 
         Answer(String text, Outcome outcome, List<String> toolsCalled) {
-            this(text, outcome, toolsCalled, null);
+            this(text, outcome, toolsCalled, null, null);
         }
     }
 
@@ -145,12 +150,17 @@ public class AssistantEngine {
                     if (handoff.isPresent()) {
                         toolsCalled.add(REQUEST_HUMAN.name());
                         return new Answer(null, Outcome.HANDOFF, toolsCalled,
-                                mapper.readTree(handoff.get().inputJson()).path("reason").asString(""));
+                                mapper.readTree(handoff.get().inputJson()).path("reason").asString(""), null);
                     }
                     List<LlmContent> outcomes = new ArrayList<>();
                     for (LlmContent.ToolCall call : toolCalls) {
                         toolsCalled.add(call.name());
-                        outcomes.add(run(turn, tools.get(call.name()), call));
+                        ToolResult result = run(turn, tools.get(call.name()), call);
+                        if (result.checkout() != null) {
+                            return new Answer(result.checkout().summaryText(), Outcome.CHECKOUT, toolsCalled,
+                                    null, result.checkout());
+                        }
+                        outcomes.add(new LlmContent.ToolOutcome(call.id(), result.contentJson(), result.error()));
                     }
                     messages.add(new LlmMessage(LlmMessage.Role.USER, outcomes));
                     continue;
@@ -173,22 +183,21 @@ public class AssistantEngine {
         }
     }
 
-    private LlmContent run(Turn turn, Tool tool, LlmContent.ToolCall call) {
+    private ToolResult run(Turn turn, Tool tool, LlmContent.ToolCall call) {
         if (tool == null) {
-            return new LlmContent.ToolOutcome(call.id(), "{\"error\":\"unknown tool " + call.name() + "\"}", true);
+            return new ToolResult("{\"error\":\"unknown tool " + call.name() + "\"}", true);
         }
         var problem = validator.problem(tool, call.inputJson());
         if (problem.isPresent()) {
-            return new LlmContent.ToolOutcome(call.id(),
+            return new ToolResult(
                     mapper.createObjectNode().put("error", "invalid input: " + problem.get()).toString(), true);
         }
         try {
-            ToolResult result = tool.execute(new ToolInvocation(turn.tenant(), turn.conversationId().toString(),
+            return tool.execute(new ToolInvocation(turn.tenant(), turn.conversationId().toString(),
                     call.inputJson()));
-            return new LlmContent.ToolOutcome(call.id(), result.contentJson(), result.error());
         } catch (RuntimeException e) {
             log.error("Tool {} failed in conversation {}", call.name(), turn.conversationId(), e);
-            return new LlmContent.ToolOutcome(call.id(), "{\"error\":\"the tool failed; try again later\"}", true);
+            return new ToolResult("{\"error\":\"the tool failed; try again later\"}", true);
         }
     }
 

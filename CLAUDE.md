@@ -182,6 +182,11 @@ versionados.
   `handOver` com aviso ao cliente e alerta por template aos `staffNumbers`); ferramenta de
   controle `request_human` no `AssistantEngine`; `failure_streak` em `conversation`; retomada
   na primeira mensagem do cliente após a pausa. Teste ponta a ponta: `HandoffFlowIT`.
+- Pedidos (M7): ferramentas de rascunho em `segment.restaurant.tool.CartTools` (carrinho em
+  `ConversationState` → `conversation.context`, preços sempre de `CartPricing`); `start_checkout`
+  devolve `CheckoutRequest` → `ReplyWorker` grava `checkout` e envia botões (`confirm:`/`edit:`);
+  só o toque em `confirm:` chama `OrderService.confirm` (sem LLM), que cria `customer_order` uma
+  vez. Teste ponta a ponta: `OrderFlowIT`.
 - Eval do M5: `AssistantEval` (`eval/restaurant-questions.json`) chama a **API real e gera
   custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
   (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);

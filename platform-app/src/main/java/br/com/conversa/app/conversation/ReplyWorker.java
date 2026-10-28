@@ -3,12 +3,15 @@ package br.com.conversa.app.conversation;
 import br.com.conversa.app.conversation.ConversationRepository.ClaimedReply;
 import br.com.conversa.app.conversation.ConversationRepository.ConversationView;
 import br.com.conversa.app.conversation.ConversationRepository.StoredMessage;
+import br.com.conversa.app.order.OrderService;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.outbound.OutboundRequest;
 import br.com.conversa.app.tenant.TenantService;
 import br.com.conversa.app.tenant.TenantTransactions;
 import br.com.conversa.core.business.BusinessDirectory;
+import br.com.conversa.core.channel.OutboundMessage;
 import br.com.conversa.core.llm.LlmException;
+import br.com.conversa.core.order.CheckoutRequest;
 import br.com.conversa.core.tenant.TenantId;
 import br.com.conversa.llm.anthropic.AnthropicProperties;
 import org.slf4j.Logger;
@@ -21,6 +24,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
@@ -34,6 +38,8 @@ public class ReplyWorker {
 
     private static final Logger log = LoggerFactory.getLogger(ReplyWorker.class);
     private static final int BATCH = 20;
+    /** WhatsApp limit of the body of a button message. */
+    private static final int MAX_BUTTON_BODY = 1024;
 
     private final ConversationRepository conversations;
     private final AssistantEngine engine;
@@ -45,6 +51,7 @@ public class ReplyWorker {
     private final AnthropicProperties anthropic;
     private final HandoffService handoff;
     private final HandoffProperties handoffProperties;
+    private final OrderService orders;
     private final TransactionTemplate transactions;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -52,7 +59,7 @@ public class ReplyWorker {
     ReplyWorker(ConversationRepository conversations, AssistantEngine engine, TenantTransactions tenants,
                 TenantService tenantService, BusinessDirectory directory, OutboundMessageRepository outbound,
                 AssistantProperties properties, AnthropicProperties anthropic, HandoffService handoff,
-                HandoffProperties handoffProperties, TransactionTemplate transactions,
+                HandoffProperties handoffProperties, OrderService orders, TransactionTemplate transactions,
                 ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
         this.engine = engine;
@@ -64,6 +71,7 @@ public class ReplyWorker {
         this.anthropic = anthropic;
         this.handoff = handoff;
         this.handoffProperties = handoffProperties;
+        this.orders = orders;
         this.transactions = transactions;
         this.mapper = mapper;
         this.clock = clock;
@@ -95,6 +103,18 @@ public class ReplyWorker {
             }
             String lastWamid = history.getLast().wamid();
             JsonNode config = tenantService.effectiveConfig(tenant);
+            String tapped = history.getLast().replyId();
+            if (tapped != null && tapped.startsWith(OrderService.CONFIRM_PREFIX)) {
+                deliver(claim, lastWamid, current -> {
+                    var confirmation = orders.confirm(tenant, current.id(),
+                            tapped.substring(OrderService.CONFIRM_PREFIX.length()), lastWamid, current.phoneNumberId(),
+                            HandoffService.customerLabel(current), config);
+                    reply(tenant, current, lastWamid, confirmation.customerText());
+                    conversations.setFailureStreak(current.id(), 0);
+                    log.info("Confirmation tap in conversation {}: {}", current.id(), confirmation.result());
+                });
+                return;
+            }
             if (HandoffService.asksForPerson(history.getLast().text())) {
                 deliver(claim, lastWamid, current -> handoff.handOver(tenant, current, lastWamid,
                         HandoffReason.CUSTOMER_REQUEST, null, config));
@@ -110,15 +130,14 @@ public class ReplyWorker {
                         ? HandoffReason.BOT_REQUEST : HandoffReason.REPEATED_FAILURES;
                 deliver(claim, lastWamid, current -> handoff.handOver(tenant, current, lastWamid, reason,
                         answer.handoffDetail(), config));
-            } else {
-                String ref = "reply:" + claim.conversationId() + ":" + lastWamid;
+            } else if (answer.outcome() == AssistantEngine.Outcome.CHECKOUT) {
                 deliver(claim, lastWamid, current -> {
-                    if (conversations.recordBotMessage(tenant, current.id(), ref, answer.text(), clock.instant())) {
-                        outbound.enqueue("read:" + lastWamid, tenant, OutboundRequest.readReceipt(
-                                current.phoneNumberId(), current.waId(), lastWamid, mapper));
-                        outbound.enqueue(ref, tenant, OutboundRequest.text(
-                                current.phoneNumberId(), current.waId(), answer.text(), mapper));
-                    }
+                    showCheckout(tenant, current, lastWamid, answer.checkout());
+                    conversations.setFailureStreak(current.id(), 0);
+                });
+            } else {
+                deliver(claim, lastWamid, current -> {
+                    reply(tenant, current, lastWamid, answer.text());
                     conversations.setFailureStreak(current.id(), failures);
                 });
             }
@@ -139,6 +158,43 @@ public class ReplyWorker {
                 }
             });
         }
+    }
+
+    /** Stores and sends a text answer with the read receipt of the message it answers, once. */
+    private void reply(TenantId tenant, ConversationView conversation, String lastWamid, String text) {
+        String ref = "reply:" + conversation.id() + ":" + lastWamid;
+        if (conversations.recordBotMessage(tenant, conversation.id(), ref, text, clock.instant())) {
+            outbound.enqueue("read:" + lastWamid, tenant, OutboundRequest.readReceipt(
+                    conversation.phoneNumberId(), conversation.waId(), lastWamid, mapper));
+            outbound.enqueue(ref, tenant, OutboundRequest.text(
+                    conversation.phoneNumberId(), conversation.waId(), text, mapper));
+        }
+    }
+
+    /**
+     * Stores the order summary as a pending checkout and sends it with the confirmation buttons. A
+     * summary longer than a button message allows goes as text first, then a short question.
+     */
+    private void showCheckout(TenantId tenant, ConversationView conversation, String lastWamid,
+                              CheckoutRequest checkout) {
+        String ref = "reply:" + conversation.id() + ":" + lastWamid;
+        if (!conversations.recordBotMessage(tenant, conversation.id(), ref, checkout.summaryText(), clock.instant())) {
+            return;
+        }
+        UUID checkoutId = orders.openCheckout(tenant, conversation.id(), checkout.draft());
+        List<OutboundMessage.Button> buttons = List.of(
+                new OutboundMessage.Button(OrderService.CONFIRM_PREFIX + checkoutId, "Confirmar pedido"),
+                new OutboundMessage.Button(OrderService.EDIT_PREFIX + checkoutId, "Alterar"));
+        outbound.enqueue("read:" + lastWamid, tenant, OutboundRequest.readReceipt(
+                conversation.phoneNumberId(), conversation.waId(), lastWamid, mapper));
+        String body = checkout.summaryText();
+        if (body.length() > MAX_BUTTON_BODY) {
+            outbound.enqueue(ref + ":summary", tenant, OutboundRequest.text(
+                    conversation.phoneNumberId(), conversation.waId(), body, mapper));
+            body = "Está tudo certo no resumo acima?";
+        }
+        outbound.enqueue(ref, tenant, OutboundRequest.buttons(
+                conversation.phoneNumberId(), conversation.waId(), body, buttons, mapper));
     }
 
     /**

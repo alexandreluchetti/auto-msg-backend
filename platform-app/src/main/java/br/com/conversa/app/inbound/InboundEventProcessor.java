@@ -90,7 +90,7 @@ class InboundEventProcessor {
         tenants.runInTenant(event.tenantId(), () -> conversations.recordCustomerMessage(event.tenantId(),
                 event.phoneNumberId(), event.waId(), profileName.isString() ? profileName.asString() : null,
                 message.path("id").asString(), message.path("type").asString(),
-                CustomerText.of(message), sentAt, answer ? assistant.debounce() : null));
+                CustomerText.of(message), CustomerText.replyId(message), sentAt, answer ? assistant.debounce() : null));
     }
 
     /** Meta's timestamp (epoch seconds) of a message or echo. */

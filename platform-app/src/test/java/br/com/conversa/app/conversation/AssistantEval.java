@@ -8,6 +8,7 @@ import br.com.conversa.core.business.OpeningHours;
 import br.com.conversa.core.business.OpeningPeriod;
 import br.com.conversa.core.catalog.CatalogItem;
 import br.com.conversa.core.catalog.CatalogOption;
+import br.com.conversa.core.conversation.ConversationState;
 import br.com.conversa.core.tenant.TenantId;
 import br.com.conversa.core.text.SearchText;
 import br.com.conversa.llm.anthropic.AnthropicLlmClient;
@@ -38,9 +39,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -92,7 +95,18 @@ class AssistantEval {
         Clock clock = Clock.fixed(LocalDateTime.parse(fixture.path("now").asString()).atZone(zone).toInstant(), zone);
         BusinessDirectory directory = directory(fixture, zone);
         String[] effectiveConfig = new String[1];
-        RestaurantSegmentPack pack = new RestaurantSegmentPack(directory, tenant -> effectiveConfig[0], clock);
+        Map<String, String> states = new HashMap<>();
+        RestaurantSegmentPack pack = new RestaurantSegmentPack(directory, tenant -> effectiveConfig[0], new ConversationState() {
+            @Override
+            public String read(TenantId tenant, String conversationId) {
+                return states.getOrDefault(conversationId, "{}");
+            }
+
+            @Override
+            public void write(TenantId tenant, String conversationId, String stateJson) {
+                states.put(conversationId, stateJson);
+            }
+        }, clock);
         String ownConfig = mapper.writeValueAsString(fixture.path("config"));
         effectiveConfig[0] = new TenantConfigResolver(mapper).effectiveConfig(pack, ownConfig).toString();
         ObjectNode turnNode = (ObjectNode) mapper.readTree(effectiveConfig[0]);
