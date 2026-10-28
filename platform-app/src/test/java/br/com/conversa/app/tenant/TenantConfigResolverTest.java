@@ -15,7 +15,7 @@ class TenantConfigResolverTest {
 
     private final ObjectMapper mapper = JsonMapper.builder().build();
     private final TenantConfigResolver resolver = new TenantConfigResolver(mapper);
-    private final RestaurantSegmentPack restaurant = new RestaurantSegmentPack(null, null, Clock.systemUTC());
+    private final RestaurantSegmentPack restaurant = new RestaurantSegmentPack(null, null, null, Clock.systemUTC());
 
     @Test
     void packDefaultsFillWhatTheTenantDoesNotSet() {

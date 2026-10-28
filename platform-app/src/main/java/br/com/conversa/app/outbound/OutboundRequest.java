@@ -28,13 +28,22 @@ public record OutboundRequest(OutboundKind kind, String phoneNumberId, String wa
         return new OutboundRequest(OutboundKind.TEMPLATE, phoneNumberId, waId, payload.toString());
     }
 
+    /** Text with reply buttons; {@code buttons} as (id, title) pairs, at most 3. */
+    public static OutboundRequest buttons(String phoneNumberId, String waId, String body,
+                                          List<OutboundMessage.Button> buttons, ObjectMapper mapper) {
+        ObjectNode payload = mapper.createObjectNode().put("body", body);
+        ArrayNode values = payload.putArray("buttons");
+        buttons.forEach(button -> values.addObject().put("id", button.id()).put("title", button.title()));
+        return new OutboundRequest(OutboundKind.BUTTONS, phoneNumberId, waId, payload.toString());
+    }
+
     public static OutboundRequest readReceipt(String phoneNumberId, String waId, String messageId,
                                               ObjectMapper mapper) {
         return new OutboundRequest(OutboundKind.READ, phoneNumberId, waId,
                 mapper.createObjectNode().put("message_id", messageId).toString());
     }
 
-    /** Only for {@link OutboundKind#TEXT} and {@link OutboundKind#TEMPLATE}. */
+    /** Every kind except {@link OutboundKind#READ}. */
     OutboundMessage toMessage(ObjectMapper mapper) {
         JsonNode payload = mapper.readTree(payloadJson);
         return switch (kind) {
@@ -44,6 +53,12 @@ public record OutboundRequest(OutboundKind kind, String phoneNumberId, String wa
                 payload.path("parameters").forEach(value -> parameters.add(value.asString()));
                 yield new OutboundMessage.Template(waId, payload.path("name").asString(),
                         payload.path("language").asString(), parameters);
+            }
+            case BUTTONS -> {
+                List<OutboundMessage.Button> buttons = new ArrayList<>();
+                payload.path("buttons").forEach(button -> buttons.add(
+                        new OutboundMessage.Button(button.path("id").asString(), button.path("title").asString())));
+                yield new OutboundMessage.Buttons(waId, payload.path("body").asString(), buttons);
             }
             case READ -> throw new IllegalStateException("A read receipt is not a message");
         };

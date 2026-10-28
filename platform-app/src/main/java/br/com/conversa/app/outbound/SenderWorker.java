@@ -47,7 +47,7 @@ public class SenderWorker {
 
     private void handle(ClaimedOutbound row) {
         OutboundRequest request = row.request();
-        if (request.kind() == OutboundKind.TEXT && !window.isOpen(request.phoneNumberId(), request.waId())) {
+        if (request.kind().freeForm() && !window.isOpen(request.phoneNumberId(), request.waId())) {
             repository.markFailed(row.id(), WINDOW_CLOSED);
             log.warn("Outbound {} {} not sent: window closed", row.id(), request.kind());
             return;

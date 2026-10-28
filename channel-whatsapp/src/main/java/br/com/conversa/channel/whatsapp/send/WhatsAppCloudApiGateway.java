@@ -74,6 +74,14 @@ public final class WhatsAppCloudApiGateway implements ChannelGateway {
                             parameters.addObject().put("type", "text").put("text", value));
                 }
             }
+            case OutboundMessage.Buttons buttons -> {
+                body.put("type", "interactive");
+                ObjectNode interactive = body.putObject("interactive").put("type", "button");
+                interactive.putObject("body").put("text", buttons.body());
+                ArrayNode replies = interactive.putObject("action").putArray("buttons");
+                buttons.buttons().forEach(button -> replies.addObject().put("type", "reply").putObject("reply")
+                        .put("id", button.id()).put("title", button.title()));
+            }
         }
         return post(senderId, body);
     }

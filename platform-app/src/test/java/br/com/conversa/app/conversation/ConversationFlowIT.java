@@ -154,6 +154,7 @@ class ConversationFlowIT {
         assertThat(request.system()).contains("Você é Rita", "Cantina da Praça");
         assertThat(request.tools()).extracting(spec -> spec.name())
                 .containsExactly("search_menu", "get_business_hours", "get_delivery_fee", "get_business_info",
+                        "add_to_cart", "update_cart", "view_cart", "set_fulfillment", "set_payment", "start_checkout",
                         "request_human");
         var toolResult = (LlmContent.ToolOutcome) llm.requests().get(1).messages().getLast().content().getFirst();
         assertThat(toolResult.contentJson()).contains("R$ 39,90");

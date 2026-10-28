@@ -3,10 +3,12 @@ package br.com.conversa.app.config;
 import br.com.conversa.app.conversation.AssistantProperties;
 import br.com.conversa.app.conversation.HandoffProperties;
 import br.com.conversa.app.conversation.LlmPricing;
+import br.com.conversa.app.order.OrderProperties;
 import br.com.conversa.app.tenant.BootstrapProperties;
 import br.com.conversa.app.tenant.TenantService;
 import br.com.conversa.channel.whatsapp.WhatsAppProperties;
 import br.com.conversa.core.business.BusinessDirectory;
+import br.com.conversa.core.conversation.ConversationState;
 import br.com.conversa.core.llm.LlmClient;
 import br.com.conversa.core.segment.SegmentPack;
 import br.com.conversa.core.tenant.TenantSettings;
@@ -25,7 +27,7 @@ import java.time.Clock;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({WhatsAppProperties.class, AnthropicProperties.class, BootstrapProperties.class,
-        AssistantProperties.class, LlmPricing.class, HandoffProperties.class})
+        AssistantProperties.class, LlmPricing.class, HandoffProperties.class, OrderProperties.class})
 class PlatformConfiguration {
 
     @Bean
@@ -40,7 +42,8 @@ class PlatformConfiguration {
     }
 
     @Bean
-    SegmentPack restaurantSegmentPack(BusinessDirectory directory, TenantSettings settings, Clock clock) {
-        return new RestaurantSegmentPack(directory, settings, clock);
+    SegmentPack restaurantSegmentPack(BusinessDirectory directory, TenantSettings settings, ConversationState state,
+                                      Clock clock) {
+        return new RestaurantSegmentPack(directory, settings, state, clock);
     }
 }

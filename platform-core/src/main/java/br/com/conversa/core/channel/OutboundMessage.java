@@ -34,4 +34,23 @@ public sealed interface OutboundMessage {
             bodyParameters = bodyParameters == null ? List.of() : List.copyOf(bodyParameters);
         }
     }
+
+    /**
+     * Text with up to 3 reply buttons (WhatsApp: interactive "button", free-form, so only inside the
+     * customer service window). The customer's tap comes back with the button's {@code id}.
+     */
+    record Buttons(String to, String body, List<Button> buttons) implements OutboundMessage {
+        public Buttons {
+            Objects.requireNonNull(to, "to");
+            Objects.requireNonNull(body, "body");
+            buttons = List.copyOf(buttons);
+            if (buttons.isEmpty() || buttons.size() > 3) {
+                throw new IllegalArgumentException("1 to 3 buttons");
+            }
+        }
+    }
+
+    /** @param title at most 20 characters */
+    record Button(String id, String title) {
+    }
 }

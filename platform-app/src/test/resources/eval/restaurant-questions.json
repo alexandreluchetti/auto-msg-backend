@@ -47,7 +47,8 @@
     {"id": "info-05", "category": "info", "question": "Vocês têm estacionamento?", "tools": [], "contains": [["nao tenho", "nao sei", "nao possuo", "atendente", "equipe", "nao consigo"]]},
     {"id": "info-06", "category": "info", "question": "Aceitam vale-refeição?", "tools": [], "contains": [["nao", "dinheiro", "cartao", "atendente", "equipe"]]},
 
-    {"id": "order-01", "category": "order", "question": "Quero pedir uma calabresa grande pra entregar no Centro", "expectHandoff": true},
+    {"id": "order-01", "category": "order", "question": "Quero pedir uma calabresa grande pra entregar no Centro", "tools": ["add_to_cart"], "contains": [["endereco", "rua", "numero"]], "notContains": ["pedido confirmado", "pedido foi confirmado"]},
+    {"id": "order-04", "category": "order", "history": [{"from": "customer", "text": "Quero uma calabresa grande pra retirar"}, {"from": "bot", "text": "Anotei a Pizza Calabresa grande para retirada. Como prefere pagar?"}], "question": "pix", "tools": ["set_payment"], "notContains": ["pedido confirmado", "pedido foi confirmado"]},
     {"id": "order-02", "category": "order", "question": "Meu pedido já saiu?", "expectHandoff": true},
     {"id": "order-03", "category": "order", "question": "A pizza que chegou veio fria, quero reclamar", "expectHandoff": true},
 

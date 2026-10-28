@@ -222,6 +222,64 @@ class AssistantEngineTest {
     }
 
     @Test
+    void aCheckoutResultEndsTheTurnWithTheSummary() {
+        var draft = new br.com.conversa.core.order.OrderDraft("PICKUP", null, null, java.math.BigDecimal.ZERO, "cash",
+                null, List.of(), java.math.BigDecimal.TEN, java.math.BigDecimal.TEN);
+        Tool checkout = new Tool() {
+            @Override
+            public String name() {
+                return "start_checkout";
+            }
+
+            @Override
+            public String description() {
+                return "Fecha o carrinho.";
+            }
+
+            @Override
+            public String inputSchema() {
+                return "{\"type\": \"object\", \"additionalProperties\": false, \"properties\": {}}";
+            }
+
+            @Override
+            public ToolResult execute(ToolInvocation invocation) {
+                return ToolResult.checkout("{\"checkoutShown\": true}",
+                        new br.com.conversa.core.order.CheckoutRequest("*Resumo do pedido*", draft));
+            }
+        };
+        SegmentPack withCheckout = new SegmentPack() {
+            @Override
+            public String id() {
+                return "test";
+            }
+
+            @Override
+            public int version() {
+                return 1;
+            }
+
+            @Override
+            public List<Tool> tools() {
+                return List.of(checkout);
+            }
+
+            @Override
+            public String systemPrompt(String effectiveConfigJson) {
+                return "Você é a assistente.";
+            }
+        };
+        llm.then(ScriptedLlm.toolCall("t1", "start_checkout", "{}"));
+
+        var answer = engine.answer(new AssistantEngine.Turn(TENANT, CONVERSATION, withCheckout, CONFIG, SAO_PAULO,
+                List.of(customer("Pode fechar")), "claude-opus-5-5", false));
+
+        assertThat(answer.outcome()).isEqualTo(AssistantEngine.Outcome.CHECKOUT);
+        assertThat(answer.text()).isEqualTo("*Resumo do pedido*");
+        assertThat(answer.checkout().draft()).isEqualTo(draft);
+        assertThat(llm.requests()).hasSize(1);
+    }
+
+    @Test
     void staffMessagesAreMarkedInTheHistory() {
         llm.then(ScriptedLlm.text("Certo!"));
 

@@ -247,8 +247,31 @@ See [ADR-008](adr/ADR-008-human-handoff.md).
 - An answer is delivered only if the bot is still in charge and no newer customer message arrived
   while it was built (the next answer covers it). History is ordered by arrival, since Meta's
   timestamps have one-second resolution.
-- Until checkout exists (M7), the assistant hands orders and complaints to staff with
-  `request_human`.
+- Complaints and questions about existing orders go to staff with `request_human`; orders are
+  taken by the assistant (M7, below).
+
+**Orders (M7, D-004..D-007):**
+
+- The restaurant pack's draft tools (`add_to_cart`, `update_cart`, `view_cart`,
+  `set_fulfillment`, `set_payment`) keep the cart in the pack's conversation state
+  (`ConversationState` → `conversation.context`). The cart stores choices only (codes,
+  quantities, option names, address, payment); every view prices it again from the catalog and the
+  delivery zones (`CartPricing`) and lists what is still `missing` (items, delivery or pickup,
+  address and served neighborhood, minimum order for delivery, payment, cash change).
+- `start_checkout` refuses an incomplete cart (the LLM asks for what is missing) and, while hours
+  are registered, a closed restaurant. A complete cart ends the turn with a `CheckoutRequest`: an
+  `OrderDraft` priced by code and its pt-BR summary. `ReplyWorker` stores it as a pending
+  `checkout` (earlier pending ones are superseded) and sends the summary with the reply buttons
+  `Confirmar pedido` (`confirm:<checkout>`) and `Alterar` (`edit:<checkout>`); a summary over the
+  1,024-character button limit goes as text first.
+- Only a tap on `confirm:` creates an order, deterministically and without the LLM
+  (`OrderService.confirm`): the pending checkout becomes `customer_order` + `order_item` exactly
+  as summarized, with a per-tenant number (`order_sequence`) and the tap's wamid as
+  `confirmation_wamid` (unique). A second tap answers that it is already confirmed; a tap on a
+  summary superseded by any later cart change (`ConversationState.write` supersedes pending
+  checkouts) answers that it is outdated. The customer gets a confirmation and the staff numbers
+  the `conversa.orders.staff-alert-template` alert; the cart is cleared.
+- Typed confirmations ("confirmo") are never orders: the prompt asks the customer to tap.
 
 ## 7. Multi-tenant model and segments
 
