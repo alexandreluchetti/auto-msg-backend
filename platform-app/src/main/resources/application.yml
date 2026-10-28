@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: conversa
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/conversa}
+    username: ${DB_USER:conversa}
+    password: ${DB_PASSWORD:conversa}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+conversa:
+  whatsapp:
+    verify-token: ${WHATSAPP_VERIFY_TOKEN:}
+    app-secret: ${WHATSAPP_APP_SECRET:}
+    graph-api-url: https://graph.facebook.com
+    graph-api-version: ${WHATSAPP_GRAPH_API_VERSION:v24.0}
+  llm:
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      default-model: ${ANTHROPIC_DEFAULT_MODEL:claude-opus-5-5}
