@@ -1,5 +1,6 @@
 package br.com.conversa.app.order;
 
+import br.com.conversa.app.api.PanelEvent;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.outbound.OutboundRequest;
 import br.com.conversa.core.order.OrderDraft;
@@ -7,6 +8,7 @@ import br.com.conversa.core.order.OrderLine;
 import br.com.conversa.core.tenant.TenantId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -42,12 +44,15 @@ public class OrderService {
     private final JdbcClient jdbc;
     private final OutboundMessageRepository outbound;
     private final OrderProperties properties;
+    private final ApplicationEventPublisher events;
     private final ObjectMapper mapper;
 
-    OrderService(JdbcClient jdbc, OutboundMessageRepository outbound, OrderProperties properties, ObjectMapper mapper) {
+    OrderService(JdbcClient jdbc, OutboundMessageRepository outbound, OrderProperties properties,
+                 ApplicationEventPublisher events, ObjectMapper mapper) {
         this.jdbc = jdbc;
         this.outbound = outbound;
         this.properties = properties;
+        this.events = events;
         this.mapper = mapper;
     }
 
@@ -152,6 +157,7 @@ public class OrderService {
         jdbc.sql("UPDATE conversation SET context = '{}', updated_at = now() WHERE id = :id")
                 .param("id", conversation).update();
         alertStaff(tenant, phoneNumberId, number, customerLabel, draft, config);
+        events.publishEvent(PanelEvent.orderCreated(tenant, order));
         log.info("Order #{} created for tenant {}", number, tenant);
         return new Confirmation(Result.CREATED, number, confirmedText(number, draft));
     }

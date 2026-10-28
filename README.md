@@ -104,12 +104,15 @@ starts PostgreSQL with Testcontainers.
 | `ASSISTANT_EFFORT` | Default reasoning effort of the assistant (`low`, `medium`, `high`); tenants may override it | `low` |
 | `HANDOFF_STAFF_ALERT_TEMPLATE` | Approved utility template that alerts staff numbers of a handoff (body parameters: customer, reason); empty sends no WhatsApp alert | empty |
 | `ORDERS_STAFF_ALERT_TEMPLATE` | Approved utility template that tells staff numbers about a confirmed order (body parameters: number, customer, delivery or pickup, total); empty sends no WhatsApp alert | empty |
+| `ORDERS_TEMPLATE_PREPARING` / `_OUT_FOR_DELIVERY` / `_READY_FOR_PICKUP` / `_COMPLETED` / `_CANCELLED` | Approved templates ({{1}} = order number) for status notices when the 24h window is closed; a status without one is not notified then | empty |
+| `SESSION_COOKIE_SECURE` | Marks the panel session cookie `Secure` (set `true` behind HTTPS) | `false` |
 | `BOOTSTRAP_TENANT_SLUG` / `BOOTSTRAP_TENANT_NAME` | Tenant created at startup (pilot restaurant; test number in development). Empty slug: no bootstrap | empty |
 | `BOOTSTRAP_TENANT_SEGMENT` | Segment Pack of that tenant | `restaurant` |
 | `BOOTSTRAP_TENANT_CONFIG` | Tenant settings as a JSON object, merged over the pack defaults and validated by its schema; replaces the stored settings on every start | empty (keep stored) |
 | `BOOTSTRAP_PHONE_NUMBER_ID` / `BOOTSTRAP_WABA_ID` | Cloud API number of that tenant | empty |
 | `BOOTSTRAP_ACCESS_TOKEN_REF` | Name of the variable holding that number's token | empty (platform token) |
 | `BOOTSTRAP_DATA_DIR` | Folder with that tenant's spreadsheets (`menu.csv`, `options.csv`, `hours.csv`, `zones.csv`, see [`docs/IMPORT.md`](docs/IMPORT.md)); each file present is imported on every start | empty (no import) |
+| `BOOTSTRAP_STAFF_EMAIL` / `BOOTSTRAP_STAFF_NAME` / `BOOTSTRAP_STAFF_PASSWORD` | Panel user of that tenant, created or reset on every start (password with at least 10 characters) | empty |
 | `ANTHROPIC_API_KEY` | Claude API key; without it the bot does not answer | — |
 | `ANTHROPIC_DEFAULT_MODEL` | Default Claude model | `claude-opus-5-5` |
 

@@ -1,0 +1,229 @@
+openapi: 3.1.0
+info:
+  title: Conversa panel API
+  version: 1.0.0
+  description: |
+    REST + SSE API of the staff panel (ADR-009, D-010). Same origin as the panel: the browser keeps
+    the session in the HttpOnly cookie `CONVERSA_SESSION`. Every state-changing request sends the
+    value of the `XSRF-TOKEN` cookie in the `X-XSRF-TOKEN` header; call `GET /api/v1/auth/csrf`
+    first to get the cookie. All data belongs to the signed-in staff member's business.
+servers:
+  - url: /
+paths:
+  /api/v1/auth/csrf:
+    get:
+      summary: Issues the CSRF cookie
+      security: []
+      responses:
+        '200':
+          description: Cookie `XSRF-TOKEN` set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  headerName: { type: string, example: X-XSRF-TOKEN }
+  /api/v1/auth/login:
+    post:
+      summary: Signs in with e-mail and password
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Signed in; session cookie set
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401':
+          description: Wrong e-mail or password
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { description: Missing CSRF token }
+  /api/v1/auth/me:
+    get:
+      summary: The signed-in staff member
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+          description: Signed in
+        '401': { description: Not signed in }
+  /api/v1/auth/logout:
+    post:
+      summary: Signs out
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      responses:
+        '204': { description: Signed out }
+  /api/v1/orders:
+    get:
+      summary: Orders of the board
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [open, recent], default: open }
+          description: '`open`: orders in progress; `recent`: every order of the last 24 hours'
+      responses:
+        '200':
+          description: Newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Order' }
+        '401': { description: Not signed in }
+  /api/v1/orders/{id}:
+    get:
+      summary: One order
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+          description: The order
+        '404': { description: Not an order of this business }
+  /api/v1/orders/{id}/status:
+    post:
+      summary: Moves the order; the customer is notified on WhatsApp (D-011)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/OrderStatus' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+          description: Moved
+        '404': { description: Not an order of this business }
+        '409':
+          description: |
+            Not allowed from the current status. RECEIVED → PREPARING, OUT_FOR_DELIVERY,
+            READY_FOR_PICKUP, CANCELLED; PREPARING → OUT_FOR_DELIVERY, READY_FOR_PICKUP, CANCELLED;
+            OUT_FOR_DELIVERY / READY_FOR_PICKUP → COMPLETED, CANCELLED. OUT_FOR_DELIVERY only for
+            delivery orders, READY_FOR_PICKUP only for pickup orders.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/conversations/handoffs:
+    get:
+      summary: Conversations staff are handling now (the bot is paused)
+      responses:
+        '200':
+          description: Most recent handoff first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Handoff' }
+  /api/v1/conversations/{id}/resume:
+    post:
+      summary: Hands the conversation back to the bot
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Csrf'
+      responses:
+        '204': { description: The bot answers the next customer message }
+  /api/v1/events:
+    get:
+      summary: Live events (Server-Sent Events)
+      description: |
+        `event: ready` when connected, then `order.created`, `order.updated`,
+        `conversation.handoff` and `conversation.resumed`, each with data
+        `{"type": "...", "id": "<uuid>"}`; the panel refetches what the event names. Comment
+        lines (`: ping`) every 25 s keep the connection open.
+      responses:
+        '200':
+          content:
+            text/event-stream:
+              schema: { type: string }
+          description: Event stream
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Csrf:
+      name: X-XSRF-TOKEN
+      in: header
+      required: true
+      schema: { type: string }
+      description: Value of the `XSRF-TOKEN` cookie
+  schemas:
+    Me:
+      type: object
+      properties:
+        email: { type: string }
+        name: { type: string }
+        tenantId: { type: string, format: uuid }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+    OrderStatus:
+      type: string
+      enum: [RECEIVED, PREPARING, OUT_FOR_DELIVERY, READY_FOR_PICKUP, COMPLETED, CANCELLED]
+    Order:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: integer, description: 'Shown as #number' }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        customerName: { type: [string, 'null'], description: Name on WhatsApp }
+        customerPhone: { type: string, description: 'WhatsApp number with country code, e.g. 5516990000001' }
+        fulfillment: { type: string, enum: [DELIVERY, PICKUP] }
+        address: { type: [string, 'null'] }
+        neighborhood: { type: [string, 'null'] }
+        deliveryFee: { type: number }
+        paymentMethod: { type: string, enum: [cash, card_on_delivery, pix_on_delivery] }
+        changeFor: { type: [number, 'null'], description: Cash the customer pays with }
+        subtotal: { type: number }
+        total: { type: number }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              quantity: { type: integer }
+              unitPrice: { type: number }
+              options: { type: array, items: { type: string }, example: ['Tamanho: Grande'] }
+              notes: { type: [string, 'null'] }
+              lineTotal: { type: number }
+    Handoff:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        customerName: { type: [string, 'null'] }
+        customerPhone: { type: string }
+        handoffReason: { type: string, enum: [STAFF_REPLY, CUSTOMER_REQUEST, BOT_REQUEST, REPEATED_FAILURES] }
+        handoffAt: { type: string, format: date-time }
+        pausedUntil: { type: string, format: date-time }
+        lastMessage: { type: [string, 'null'] }

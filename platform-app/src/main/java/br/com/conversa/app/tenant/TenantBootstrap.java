@@ -1,5 +1,6 @@
 package br.com.conversa.app.tenant;
 
+import br.com.conversa.app.api.StaffDirectory;
 import br.com.conversa.app.business.BusinessDataImporter;
 import br.com.conversa.core.tenant.TenantId;
 import org.slf4j.Logger;
@@ -30,13 +31,15 @@ class TenantBootstrap implements ApplicationRunner {
     private final TenantService tenants;
     private final TenantChannelService channels;
     private final BusinessDataImporter importer;
+    private final StaffDirectory staff;
 
     TenantBootstrap(BootstrapProperties properties, TenantService tenants, TenantChannelService channels,
-                    BusinessDataImporter importer) {
+                    BusinessDataImporter importer, StaffDirectory staff) {
         this.properties = properties;
         this.tenants = tenants;
         this.channels = channels;
         this.importer = importer;
+        this.staff = staff;
     }
 
     @Override
@@ -57,6 +60,10 @@ class TenantBootstrap implements ApplicationRunner {
             channels.register(tenant, properties.phoneNumberId(), blankToNull(properties.wabaId()),
                     blankToNull(properties.accessTokenRef()));
             log.info("Bootstrap registered a WhatsApp number for tenant {}", properties.slug());
+        }
+        if (!isBlank(properties.staffEmail())) {
+            staff.upsert(tenant, properties.staffEmail().strip(), properties.staffName(), properties.staffPassword());
+            log.info("Bootstrap set the panel user of tenant {}", properties.slug());
         }
         if (!isBlank(properties.dataDir())) {
             importData(tenant, Path.of(properties.dataDir()));

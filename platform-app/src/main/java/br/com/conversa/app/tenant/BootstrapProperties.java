@@ -18,6 +18,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param dataDir        folder with the tenant's spreadsheets ({@code menu.csv}, {@code options.csv},
  *                       {@code hours.csv}, {@code zones.csv}); each file present is imported on
  *                       every start, replacing that data
+ * @param staffEmail     panel user created (or whose password is reset) on every start
+ * @param staffName      that user's name
+ * @param staffPassword  that user's password (environment variable, at least 10 characters)
  */
 @ConfigurationProperties("conversa.bootstrap")
 public record BootstrapProperties(
@@ -28,5 +31,8 @@ public record BootstrapProperties(
         String phoneNumberId,
         String wabaId,
         String accessTokenRef,
-        String dataDir) {
+        String dataDir,
+        String staffEmail,
+        @DefaultValue("Equipe") String staffName,
+        String staffPassword) {
 }

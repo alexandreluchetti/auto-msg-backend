@@ -52,6 +52,15 @@ with Docker Compose.
 The staff panel lives in its own repository (`auto-msg-frontend`), talking to this backend
 through a REST + SSE API (ADR-009).
 
+### D-010 — Panel stack and access
+The panel repository is public on GitHub and built with React + Vite + TypeScript. Staff sign in
+with e-mail and password; the session lives in an HttpOnly cookie (no token in the browser).
+
+### D-011 — Order status notifications
+Every status change made in the panel notifies the customer on WhatsApp: being prepared, out for
+delivery or ready for pickup, completed, and cancelled. Each notice is a paid message; outside the
+24h window it needs an approved template.
+
 ## Technical defaults (easy to change)
 
 - Handoff pause after a staff reply from the app: 60 minutes, renewed on every reply,
@@ -112,6 +121,15 @@ through a REST + SSE API (ADR-009).
 - New-order template to submit to Meta (utility, pt_BR), name in `ORDERS_STAFF_ALERT_TEMPLATE`,
   suggested body: "Novo pedido {{1}} de {{2}} — {{3}}, total {{4}}. Veja no painel ou no WhatsApp
   Business." Until it is approved, staff see orders in the conversation and, from M8, the panel.
+- Panel (M8): sessions last 12 hours; staff passwords have at least 10 characters; the pilot's
+  first panel user is created from `BOOTSTRAP_STAFF_*`. Orders move RECEIVED → PREPARING →
+  OUT_FOR_DELIVERY (delivery) or READY_FOR_PICKUP (pickup) → COMPLETED, and can be CANCELLED until
+  completed; steps may be skipped forward, never back. The board shows open orders, or every order
+  of the last 24 hours, with the customer's WhatsApp name and number.
+- Status notice texts (inside the 24h window): "Seu pedido #N já está sendo preparado!", "...saiu
+  para entrega!", "...está pronto para retirada!", "Pedido #N concluído. Obrigado pela
+  preferência!", "Seu pedido #N foi cancelado. Se tiver alguma dúvida, é só responder por aqui."
+  Outside the window they need one approved template per status (`ORDERS_TEMPLATE_*`).
 - Local development ports: PostgreSQL on `5433`, API on `8081` (5432/8080 are used by other
   local projects).
 

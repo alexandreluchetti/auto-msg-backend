@@ -1,12 +1,14 @@
 package br.com.conversa.app.conversation;
 
 import br.com.conversa.app.conversation.ConversationRepository.ConversationView;
+import br.com.conversa.app.api.PanelEvent;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.outbound.OutboundRequest;
 import br.com.conversa.core.tenant.TenantId;
 import br.com.conversa.core.text.SearchText;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -51,14 +53,16 @@ public class HandoffService {
     private final ConversationRepository conversations;
     private final OutboundMessageRepository outbound;
     private final HandoffProperties properties;
+    private final ApplicationEventPublisher events;
     private final ObjectMapper mapper;
     private final Clock clock;
 
     HandoffService(ConversationRepository conversations, OutboundMessageRepository outbound,
-                   HandoffProperties properties, ObjectMapper mapper, Clock clock) {
+                   HandoffProperties properties, ApplicationEventPublisher events, ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
         this.outbound = outbound;
         this.properties = properties;
+        this.events = events;
         this.mapper = mapper;
         this.clock = clock;
     }
@@ -74,6 +78,7 @@ public class HandoffService {
         var echo = conversations.recordStaffEcho(tenant, phoneNumberId, customerWaId, wamid, type, text, sentAt);
         if (echo.isNew()) {
             conversations.pause(echo.conversationId(), pauseUntil(config), HandoffReason.STAFF_REPLY.name());
+            events.publishEvent(PanelEvent.handoff(tenant, echo.conversationId()));
         }
     }
 
@@ -92,6 +97,7 @@ public class HandoffService {
             alertStaff(tenant, conversation, ref, reason, detail, config);
         }
         conversations.pause(conversation.id(), pauseUntil(config), reason.name());
+        events.publishEvent(PanelEvent.handoff(tenant, conversation.id()));
         log.info("Conversation {} handed to staff: {}", conversation.id(), reason);
     }
 
