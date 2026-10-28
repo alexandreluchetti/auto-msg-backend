@@ -2,7 +2,6 @@
   "assistant": { "name": "Assistente", "tone": "friendly" },
   "fulfillment": { "delivery": true, "pickup": true },
   "paymentMethods": ["cash", "card_on_delivery"],
-  "deliveryZones": [],
   "staffNumbers": [],
   "handoff": { "pauseMinutes": 60 }
 }

@@ -15,6 +15,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param wabaId         WhatsApp Business Account id
  * @param accessTokenRef property/environment variable with that number's token; empty uses the
  *                       platform token
+ * @param dataDir        folder with the tenant's spreadsheets ({@code menu.csv}, {@code options.csv},
+ *                       {@code hours.csv}, {@code zones.csv}); each file present is imported on
+ *                       every start, replacing that data
  */
 @ConfigurationProperties("conversa.bootstrap")
 public record BootstrapProperties(
@@ -24,5 +27,6 @@ public record BootstrapProperties(
         String configJson,
         String phoneNumberId,
         String wabaId,
-        String accessTokenRef) {
+        String accessTokenRef,
+        String dataDir) {
 }

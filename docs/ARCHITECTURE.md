@@ -239,6 +239,17 @@ Platform (defaults)
   their own settings. Until onboarding from the panel, `TenantBootstrap` seeds one tenant and its
   number at startup from `conversa.bootstrap.*` (the pilot restaurant; the test number in
   development).
+- **Implemented (M4):** generic business data in the core: `catalog_category`, `catalog_item`
+  (unique business `code`), `catalog_option`, `business_hours` (ISO day, periods past midnight)
+  and `delivery_zone`, all under RLS, plus `tenant.timezone`. The `BusinessDirectory` port
+  (`platform-core`, implemented by `JdbcBusinessDirectory`) reads them inside the tenant context;
+  `TenantSettings` exposes the effective configuration. `BusinessDataImporter` loads them from CSV
+  ([`IMPORT.md`](IMPORT.md)), all-or-nothing per file, from `conversa.bootstrap.data-dir` at
+  startup. The restaurant pack's read tools are `search_menu`, `get_business_hours`,
+  `get_delivery_fee` and `get_business_info`; they return JSON with amounts both as numbers and
+  formatted in pt-BR, and say explicitly when data is not registered (`menuRegistered`,
+  `hoursRegistered`, `zonesRegistered` = false) so the LLM never fills the gap. Matching ignores
+  case, accents and plurals (`SearchText`, `CatalogSearch`).
 - **Access tokens:** `tenant_channel.access_token_ref` names a property or environment variable
   holding that number's Cloud API token; the database never holds tokens. Numbers without one use
   the platform token (`WHATSAPP_ACCESS_TOKEN`).
@@ -396,9 +407,8 @@ erDiagram
     }
 ```
 
-Also planned: `business_hours`, `delivery_zone` (neighborhood → fee), `staff_user`,
-`audit_log`, `data_subject_request`. Opening hours and zones may start inside `tenant.config`
-and become tables when the panel starts editing them.
+Also in M4: `business_hours` and `delivery_zone` (neighborhood → fee). Planned: `staff_user`,
+`audit_log`, `data_subject_request`.
 
 ## 9. Queue and asynchronous processing
 

@@ -53,3 +53,4 @@ conversa:
     phone-number-id: ${BOOTSTRAP_PHONE_NUMBER_ID:}
     waba-id: ${BOOTSTRAP_WABA_ID:}
     access-token-ref: ${BOOTSTRAP_ACCESS_TOKEN_REF:}
+    data-dir: ${BOOTSTRAP_DATA_DIR:}

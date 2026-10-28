@@ -167,6 +167,12 @@ versionados.
   (números, resolução por `phone_number_id`), `TenantConfigResolver` (defaults do pack +
   config do tenant, validada por `config-schema.json`), `SegmentPackRegistry`,
   `TenantBootstrap` (`BOOTSTRAP_*`), `ChannelAccessTokens` (token por número).
+- Dados do negócio (M4): porta `BusinessDirectory` (`platform-core`, cardápio/horários/bairros)
+  → `JdbcBusinessDirectory`; `TenantSettings` (config efetiva); importação CSV em
+  `BusinessDataImporter` (formato em [`docs/IMPORT.md`](docs/IMPORT.md), via
+  `BOOTSTRAP_DATA_DIR`); ferramentas do restaurante em `segment.restaurant.tool`
+  (`search_menu`, `get_business_hours`, `get_delivery_fee`, `get_business_info`), testadas com
+  `FakeBusinessDirectory`.
 - Fronteiras de módulos: `ArchitectureTest`.
 - SPIs do núcleo: `SegmentPack`, `Tool`, `ToolInvocation`, `ToolResult` em `platform-core`.
 - Segment Pack de restaurante: `RestaurantSegmentPack`; fiação em `PlatformConfiguration`.

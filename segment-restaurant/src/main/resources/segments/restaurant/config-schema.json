@@ -46,18 +46,6 @@
       "uniqueItems": true,
       "items": { "enum": ["cash", "card_on_delivery", "pix_on_delivery"] }
     },
-    "deliveryZones": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["neighborhood", "fee"],
-        "properties": {
-          "neighborhood": { "type": "string", "minLength": 2, "maxLength": 80 },
-          "fee": { "type": "number", "minimum": 0 }
-        }
-      }
-    },
     "staffNumbers": {
       "description": "WhatsApp numbers that receive new orders (D-004), digits with country code.",
       "type": "array",

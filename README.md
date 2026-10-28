@@ -106,6 +106,7 @@ starts PostgreSQL with Testcontainers.
 | `BOOTSTRAP_TENANT_CONFIG` | Tenant settings as a JSON object, merged over the pack defaults and validated by its schema; replaces the stored settings on every start | empty (keep stored) |
 | `BOOTSTRAP_PHONE_NUMBER_ID` / `BOOTSTRAP_WABA_ID` | Cloud API number of that tenant | empty |
 | `BOOTSTRAP_ACCESS_TOKEN_REF` | Name of the variable holding that number's token | empty (platform token) |
+| `BOOTSTRAP_DATA_DIR` | Folder with that tenant's spreadsheets (`menu.csv`, `options.csv`, `hours.csv`, `zones.csv`, see [`docs/IMPORT.md`](docs/IMPORT.md)); each file present is imported on every start | empty (no import) |
 | `ANTHROPIC_API_KEY` | Claude API key (from M5) | — |
 | `ANTHROPIC_DEFAULT_MODEL` | Default Claude model | `claude-opus-5-5` |
 
