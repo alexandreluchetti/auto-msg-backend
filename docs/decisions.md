@@ -64,6 +64,15 @@ through a REST + SSE API (ADR-009).
 - LLM: Claude, model `claude-opus-5-5` with low effort by default, configurable per business;
   the choice will be revisited with the M5 eval set (ADR-005).
 - Late notifications outside the 24h window use approved utility templates.
+- The 24h window counts from the time the customer sent their latest message (Meta's
+  timestamp), not from when we received it; free text outside it is never sent.
+- Messages are marked as read only when the bot answers them, so staff keep the unread badge in
+  the WhatsApp Business app for the rest.
+- Sending retries: up to 5 attempts for temporary errors (rate limits, Meta or network outages),
+  waiting 5 s and doubling, up to 10 minutes; other errors fail at once.
+- Until tenants exist (M3), one Cloud API access token serves the whole platform. An echo bot
+  ("Recebemos: <text>"), off by default, exists only to test the test number; it is removed when
+  the conversation engine arrives (M5).
 - Local development ports: PostgreSQL on `5433`, API on `8081` (5432/8080 are used by other
   local projects).
 

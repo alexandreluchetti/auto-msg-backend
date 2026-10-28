@@ -152,6 +152,11 @@ versionados.
 - Webhook (M1): `WhatsAppWebhookController` → `WebhookSignatureVerifier`,
   `WebhookPayloadParser` (chaves `msg:`, `status:`, `echo:`, `<field>:<sha256>`) →
   `InboundEventRepository` (`inbound_event`, `ON CONFLICT DO NOTHING`).
+- Filas (M2): `InboundWorker` → `InboundEventProcessor` (eco-bot, status de entrega) →
+  `OutboundMessageRepository.enqueue` (chave de idempotência) → `SenderWorker` (lease, janela
+  `CustomerServiceWindow`, retry de `WorkerProperties`) → `ChannelGateway`
+  (`WhatsAppCloudApiGateway`). Nos ITs, `conversa.workers.enabled=false` e chame `runOnce()`;
+  a Graph API é simulada por `FakeGraphApi` (nunca a real).
 - Fronteiras de módulos: `ArchitectureTest`.
 - SPIs do núcleo: `SegmentPack`, `Tool`, `ToolInvocation`, `ToolResult` em `platform-core`.
 - Segment Pack de restaurante: `RestaurantSegmentPack`; fiação em `PlatformConfiguration`.

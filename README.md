@@ -96,7 +96,11 @@ starts PostgreSQL with Testcontainers.
 | `POSTGRES_PORT` | Host port of the compose PostgreSQL | `5433` |
 | `WHATSAPP_VERIFY_TOKEN` | Token Meta sends when verifying the webhook URL | empty (verification refused) |
 | `WHATSAPP_APP_SECRET` | Meta app secret, validates `X-Hub-Signature-256` | empty (every webhook POST refused) |
+| `WHATSAPP_ACCESS_TOKEN` | Cloud API access token used to send (one for the platform until M3) | empty (sending fails) |
+| `WHATSAPP_GRAPH_API_URL` | Graph API base URL | `https://graph.facebook.com` |
 | `WHATSAPP_GRAPH_API_VERSION` | Graph API version | `v24.0` |
+| `WORKERS_ENABLED` | Runs the inbound and outbound queue workers | `true` |
+| `ECHO_BOT_ENABLED` | Development aid for the test number: marks each customer text as read and answers `Recebemos: <text>` | `false` |
 | `ANTHROPIC_API_KEY` | Claude API key (from M5) | — |
 | `ANTHROPIC_DEFAULT_MODEL` | Default Claude model | `claude-opus-5-5` |
 

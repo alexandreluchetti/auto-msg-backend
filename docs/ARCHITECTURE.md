@@ -139,6 +139,26 @@ Key points:
   `<field>:<sha256 of the change>` (other fields). Invalid signature → 401; signed but invalid
   payload → 400; otherwise 200, duplicates included. `tenant_id` stays null until it is
   resolved by `phone_number_id` (M3).
+- **Workers implemented (M2):**
+  - `InboundWorker` handles one `inbound_event` per transaction (`FOR UPDATE SKIP LOCKED`) in
+    arrival order. Statuses update `outbound_message` (`delivery_status` only moves forward,
+    plus `pricing_category`/`billable`). Customer text feeds the development-only echo bot
+    (`ECHO_BOT_ENABLED`), which enqueues a read receipt and a reply. Echoes and other fields
+    are only stored until M6. A failure rolls back and is retried with backoff; after
+    `max-attempts` the event is `FAILED`.
+  - `SenderWorker` claims due `outbound_message` rows with a lease (`PROCESSING` +
+    `available_at = now() + lease`), so no connection is held during the HTTP call and a crashed
+    sender's rows are claimed again (at-least-once delivery). Free text outside the 24h window
+    is failed with `WINDOW_CLOSED` without calling Meta; templates and read receipts always go.
+    Retryable errors (HTTP 429/5xx, network, Meta rate-limit codes) back off exponentially with
+    jitter; others fail at once.
+  - The 24h window is the customer's latest message `timestamp` in `inbound_event` until M3
+    adds `conversation.window_expires_at`.
+  - Sending goes through the `ChannelGateway` port (`platform-core`), implemented by
+    `WhatsAppCloudApiGateway` with one access token (`WHATSAPP_ACCESS_TOKEN`) until per-tenant
+    tokens (M3).
+  - A single worker of each kind runs (scheduled polling); advisory locks and `LISTEN/NOTIFY`
+    come with parallel workers.
 - **Idempotency at 3 levels:** unique `inbound_event.event_key` (message wamid or
   `wamid:status`), unique `outbound_message.idempotency_key`, and business effects (e.g.
   creating an order) with a natural key (`order.confirmation_wamid`).

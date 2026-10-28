@@ -29,7 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
         "conversa.whatsapp.app-secret=" + WhatsAppWebhookIT.APP_SECRET,
-        "conversa.whatsapp.verify-token=" + WhatsAppWebhookIT.VERIFY_TOKEN
+        "conversa.whatsapp.verify-token=" + WhatsAppWebhookIT.VERIFY_TOKEN,
+        "conversa.workers.enabled=false"
 })
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
