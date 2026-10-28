@@ -34,9 +34,14 @@ conversa:
   whatsapp:
     verify-token: ${WHATSAPP_VERIFY_TOKEN:}
     app-secret: ${WHATSAPP_APP_SECRET:}
-    graph-api-url: https://graph.facebook.com
+    access-token: ${WHATSAPP_ACCESS_TOKEN:}
+    graph-api-url: ${WHATSAPP_GRAPH_API_URL:https://graph.facebook.com}
     graph-api-version: ${WHATSAPP_GRAPH_API_VERSION:v24.0}
   llm:
     anthropic:
       api-key: ${ANTHROPIC_API_KEY:}
       default-model: ${ANTHROPIC_DEFAULT_MODEL:claude-opus-5-5}
+  workers:
+    enabled: ${WORKERS_ENABLED:true}
+  echo-bot:
+    enabled: ${ECHO_BOT_ENABLED:false}
