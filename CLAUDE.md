@@ -187,6 +187,13 @@ versionados.
   devolve `CheckoutRequest` → `ReplyWorker` grava `checkout` e envia botões (`confirm:`/`edit:`);
   só o toque em `confirm:` chama `OrderService.confirm` (sem LLM), que cria `customer_order` uma
   vez. Teste ponta a ponta: `OrderFlowIT`.
+- API do painel (M8): `app.api` — `SecurityConfiguration` (sessão em cookie HttpOnly + CSRF
+  para SPA; `/webhooks/**` público), `StaffDirectory` (`staff_user`, função `staff_login`),
+  `AuthController`, `OrdersController` → `OrderBoard` (status e aviso ao cliente),
+  `ConversationsController` (transbordos, devolver ao bot), `EventsController` →
+  `PanelEventStream` (SSE após commit). Contrato: [`docs/api/openapi.yaml`](docs/api/openapi.yaml)
+  — mantenha-o em dia ao mudar a API. Testes: `PanelApiIT`, `PanelEventsIT`. Nos testes MockMvc,
+  POSTs autenticados precisam de `.with(csrf())`.
 - Eval do M5: `AssistantEval` (`eval/restaurant-questions.json`) chama a **API real e gera
   custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
   (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);

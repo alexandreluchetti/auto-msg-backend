@@ -508,12 +508,28 @@ that notify the customer) + **a WhatsApp message to staff**. Human service happe
 WhatsApp Business app** (coexistence). A conversations panel and knowledge base editor are left
 for phase 2; until then, content is loaded by seed/spreadsheet import.
 
-Technology: the panel is a **separate frontend in its own repository** (`auto-msg-frontend`,
-created in M8; stack to be defined, suggestion React + Vite + TypeScript). This repository
-(`auto-msg-backend`) exposes a **REST API** (`/api/v1/...`) and an **SSE** stream of order
-events, authenticated with the tenant's staff users (HttpOnly cookie session or JWT, to be
-decided in M8). The contract is published as OpenAPI. See
-[ADR-009](adr/ADR-009-separate-frontend-repository.md).
+Technology (D-010): the panel is a **separate public repository** (`auto-msg-frontend`) built
+with React + Vite + TypeScript, served as static files from the same origin as the API (Caddy in
+production, the Vite proxy in development). This repository exposes a **REST API**
+(`/api/v1/...`) and an **SSE** stream; the contract is [`docs/api/openapi.yaml`](api/openapi.yaml).
+See [ADR-009](adr/ADR-009-separate-frontend-repository.md).
+
+**Implemented (M8, backend):**
+
+- **Staff sign-in:** `staff_user` (bcrypt hashes, e-mail unique across tenants, V9), looked up by
+  the `SECURITY DEFINER` function `staff_login` before the tenant is known. Spring Security with a
+  server session in the HttpOnly cookie `CONVERSA_SESSION` (12 h, `SameSite=Lax`, `Secure` behind
+  HTTPS) and CSRF tokens for single-page apps (`XSRF-TOKEN` cookie → `X-XSRF-TOKEN` header). The
+  webhook and health check stay public; everything else under `/api` needs a staff session, and
+  every query runs in that staff member's tenant. The pilot's user comes from `BOOTSTRAP_STAFF_*`.
+- **Orders board:** `OrderBoard` lists open orders (or the last 24 h) with items and the customer's
+  WhatsApp name and number, and moves them through RECEIVED → PREPARING → OUT_FOR_DELIVERY /
+  READY_FOR_PICKUP → COMPLETED (or CANCELLED). Each move notifies the customer (D-011): text inside
+  the 24h window, otherwise the status template (`ORDERS_TEMPLATE_*`), or nothing if none.
+- **Live events:** `PanelEventStream` keeps the SSE connections per tenant in this process and
+  sends `order.created`, `order.updated`, `conversation.handoff` and `conversation.resumed` after the
+  transaction commits, with a heartbeat every 25 s. The panel refetches what an event names.
+- **Handoffs:** the panel lists conversations staff are handling and hands them back to the bot.
 
 ## 13. LGPD
 

@@ -18,6 +18,15 @@ spring:
 server:
   port: ${SERVER_PORT:8081}
   shutdown: graceful
+  servlet:
+    session:
+      timeout: 12h
+      cookie:
+        name: CONVERSA_SESSION
+        http-only: true
+        same-site: lax
+        # true behind HTTPS (production); false only for local development over http
+        secure: ${SESSION_COOKIE_SECURE:false}
 
 management:
   endpoints:
@@ -58,6 +67,13 @@ conversa:
   orders:
     staff-alert-template: ${ORDERS_STAFF_ALERT_TEMPLATE:}
     staff-alert-language: ${ORDERS_STAFF_ALERT_LANGUAGE:pt_BR}
+    # Templates for status notices when the 24h window is closed ({{1}} = order number)
+    status-templates:
+      PREPARING: ${ORDERS_TEMPLATE_PREPARING:}
+      OUT_FOR_DELIVERY: ${ORDERS_TEMPLATE_OUT_FOR_DELIVERY:}
+      READY_FOR_PICKUP: ${ORDERS_TEMPLATE_READY_FOR_PICKUP:}
+      COMPLETED: ${ORDERS_TEMPLATE_COMPLETED:}
+      CANCELLED: ${ORDERS_TEMPLATE_CANCELLED:}
   workers:
     enabled: ${WORKERS_ENABLED:true}
   bootstrap:
@@ -69,3 +85,6 @@ conversa:
     waba-id: ${BOOTSTRAP_WABA_ID:}
     access-token-ref: ${BOOTSTRAP_ACCESS_TOKEN_REF:}
     data-dir: ${BOOTSTRAP_DATA_DIR:}
+    staff-email: ${BOOTSTRAP_STAFF_EMAIL:}
+    staff-name: ${BOOTSTRAP_STAFF_NAME:Equipe}
+    staff-password: ${BOOTSTRAP_STAFF_PASSWORD:}
