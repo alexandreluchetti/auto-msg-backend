@@ -1,0 +1,9 @@
+# Scrapes the app on the internal Docker network (the endpoint is not routed by Caddy).
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: conversa
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['app:8080']

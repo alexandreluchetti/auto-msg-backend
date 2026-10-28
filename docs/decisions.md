@@ -130,6 +130,15 @@ delivery or ready for pickup, completed, and cancelled. Each notice is a paid me
   para entrega!", "...está pronto para retirada!", "Pedido #N concluído. Obrigado pela
   preferência!", "Seu pedido #N foi cancelado. Se tiver alguma dúvida, é só responder por aqui."
   Outside the window they need one approved template per status (`ORDERS_TEMPLATE_*`).
+- LGPD (M9): the privacy notice goes in the first answer to each customer ("Este é o atendimento
+  automático do <business>. Usamos seus dados só para atender você e cuidar dos seus pedidos
+  (política de privacidade: <link>). Para apagar seus dados a qualquer momento, envie 'apagar meus
+  dados'."); the link is the tenant's `privacy.policyUrl`. Erasure needs a tap on "Sim, apagar";
+  it deletes the history and removes personal data from orders, which stay for tax purposes. Each
+  business sets `retention.messageDays` (30–3650, default 180).
+- Backups: one at start and one a day, kept 14 days on the server; copying them to another
+  provider (rclone) is recommended and needs that storage account. Restore drills go into a new
+  database, never over the live one.
 - Local development ports: PostgreSQL on `5433`, API on `8081` (5432/8080 are used by other
   local projects).
 

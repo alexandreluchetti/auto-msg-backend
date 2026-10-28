@@ -5,6 +5,7 @@ import br.com.conversa.app.conversation.ConversationRepository.ConversationView;
 import br.com.conversa.app.conversation.ConversationRepository.StoredMessage;
 import br.com.conversa.app.order.OrderService;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
+import br.com.conversa.app.privacy.PrivacyService;
 import br.com.conversa.app.outbound.OutboundRequest;
 import br.com.conversa.app.tenant.TenantService;
 import br.com.conversa.app.tenant.TenantTransactions;
@@ -52,6 +53,7 @@ public class ReplyWorker {
     private final HandoffService handoff;
     private final HandoffProperties handoffProperties;
     private final OrderService orders;
+    private final PrivacyService privacy;
     private final TransactionTemplate transactions;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -59,7 +61,8 @@ public class ReplyWorker {
     ReplyWorker(ConversationRepository conversations, AssistantEngine engine, TenantTransactions tenants,
                 TenantService tenantService, BusinessDirectory directory, OutboundMessageRepository outbound,
                 AssistantProperties properties, AnthropicProperties anthropic, HandoffService handoff,
-                HandoffProperties handoffProperties, OrderService orders, TransactionTemplate transactions,
+                HandoffProperties handoffProperties, OrderService orders, PrivacyService privacy,
+                TransactionTemplate transactions,
                 ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
         this.engine = engine;
@@ -72,6 +75,7 @@ public class ReplyWorker {
         this.handoff = handoff;
         this.handoffProperties = handoffProperties;
         this.orders = orders;
+        this.privacy = privacy;
         this.transactions = transactions;
         this.mapper = mapper;
         this.clock = clock;
@@ -104,12 +108,22 @@ public class ReplyWorker {
             String lastWamid = history.getLast().wamid();
             JsonNode config = tenantService.effectiveConfig(tenant);
             String tapped = history.getLast().replyId();
+            if (tapped != null && tapped.startsWith(PrivacyService.ERASE_PREFIX)) {
+                deliver(claim, lastWamid, current -> privacy.onAnswer(tenant, current.id(), current.phoneNumberId(),
+                        current.waId(), tapped));
+                return;
+            }
+            if (PrivacyService.asksForErasure(history.getLast().text())) {
+                deliver(claim, lastWamid, current -> privacy.askToConfirm(tenant, current.id(), current.phoneNumberId(),
+                        current.waId(), lastWamid));
+                return;
+            }
             if (tapped != null && tapped.startsWith(OrderService.CONFIRM_PREFIX)) {
                 deliver(claim, lastWamid, current -> {
                     var confirmation = orders.confirm(tenant, current.id(),
                             tapped.substring(OrderService.CONFIRM_PREFIX.length()), lastWamid, current.phoneNumberId(),
                             HandoffService.customerLabel(current), config);
-                    reply(tenant, current, lastWamid, confirmation.customerText());
+                    reply(tenant, current, lastWamid, confirmation.customerText(), config);
                     conversations.setFailureStreak(current.id(), 0);
                     log.info("Confirmation tap in conversation {}: {}", current.id(), confirmation.result());
                 });
@@ -137,7 +151,7 @@ public class ReplyWorker {
                 });
             } else {
                 deliver(claim, lastWamid, current -> {
-                    reply(tenant, current, lastWamid, answer.text());
+                    reply(tenant, current, lastWamid, answer.text(), config);
                     conversations.setFailureStreak(current.id(), failures);
                 });
             }
@@ -160,9 +174,14 @@ public class ReplyWorker {
         }
     }
 
-    /** Stores and sends a text answer with the read receipt of the message it answers, once. */
-    private void reply(TenantId tenant, ConversationView conversation, String lastWamid, String text) {
+    /**
+     * Stores and sends a text answer with the read receipt of the message it answers, once, with the
+     * privacy notice if it is the customer's first answer.
+     */
+    private void reply(TenantId tenant, ConversationView conversation, String lastWamid, String answer,
+                       JsonNode config) {
         String ref = "reply:" + conversation.id() + ":" + lastWamid;
+        String text = privacy.withNotice(conversation.id(), answer, config);
         if (conversations.recordBotMessage(tenant, conversation.id(), ref, text, clock.instant())) {
             outbound.enqueue("read:" + lastWamid, tenant, OutboundRequest.readReceipt(
                     conversation.phoneNumberId(), conversation.waId(), lastWamid, mapper));

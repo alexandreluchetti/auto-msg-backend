@@ -2,8 +2,10 @@ package br.com.conversa.app.conversation;
 
 import br.com.conversa.app.conversation.ConversationRepository.ConversationView;
 import br.com.conversa.app.api.PanelEvent;
+import br.com.conversa.app.ops.OperationsMetrics;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.outbound.OutboundRequest;
+import br.com.conversa.app.privacy.PrivacyService;
 import br.com.conversa.core.tenant.TenantId;
 import br.com.conversa.core.text.SearchText;
 import org.slf4j.Logger;
@@ -54,15 +56,21 @@ public class HandoffService {
     private final OutboundMessageRepository outbound;
     private final HandoffProperties properties;
     private final ApplicationEventPublisher events;
+    private final PrivacyService privacy;
+    private final OperationsMetrics metrics;
     private final ObjectMapper mapper;
     private final Clock clock;
 
     HandoffService(ConversationRepository conversations, OutboundMessageRepository outbound,
-                   HandoffProperties properties, ApplicationEventPublisher events, ObjectMapper mapper, Clock clock) {
+                   HandoffProperties properties, ApplicationEventPublisher events, PrivacyService privacy,
+                   OperationsMetrics metrics,
+                   ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
         this.outbound = outbound;
         this.properties = properties;
         this.events = events;
+        this.privacy = privacy;
+        this.metrics = metrics;
         this.mapper = mapper;
         this.clock = clock;
     }
@@ -79,6 +87,7 @@ public class HandoffService {
         if (echo.isNew()) {
             conversations.pause(echo.conversationId(), pauseUntil(config), HandoffReason.STAFF_REPLY.name());
             events.publishEvent(PanelEvent.handoff(tenant, echo.conversationId()));
+            metrics.handoff(tenant, HandoffReason.STAFF_REPLY.name());
         }
     }
 
@@ -89,15 +98,17 @@ public class HandoffService {
     public void handOver(TenantId tenant, ConversationView conversation, String lastCustomerWamid,
                          HandoffReason reason, String detail, JsonNode config) {
         String ref = "handoff:" + conversation.id() + ":" + lastCustomerWamid;
-        if (conversations.recordBotMessage(tenant, conversation.id(), ref, CUSTOMER_NOTICE, clock.instant())) {
+        String notice = privacy.withNotice(conversation.id(), CUSTOMER_NOTICE, config);
+        if (conversations.recordBotMessage(tenant, conversation.id(), ref, notice, clock.instant())) {
             outbound.enqueue("read:" + lastCustomerWamid, tenant, OutboundRequest.readReceipt(
                     conversation.phoneNumberId(), conversation.waId(), lastCustomerWamid, mapper));
             outbound.enqueue(ref, tenant, OutboundRequest.text(
-                    conversation.phoneNumberId(), conversation.waId(), CUSTOMER_NOTICE, mapper));
+                    conversation.phoneNumberId(), conversation.waId(), notice, mapper));
             alertStaff(tenant, conversation, ref, reason, detail, config);
         }
         conversations.pause(conversation.id(), pauseUntil(config), reason.name());
         events.publishEvent(PanelEvent.handoff(tenant, conversation.id()));
+        metrics.handoff(tenant, reason.name());
         log.info("Conversation {} handed to staff: {}", conversation.id(), reason);
     }
 

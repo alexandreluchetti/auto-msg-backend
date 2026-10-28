@@ -1,5 +1,6 @@
 package br.com.conversa.app.order;
 
+import br.com.conversa.app.PrivacyNotices;
 import br.com.conversa.app.TestcontainersConfiguration;
 import br.com.conversa.app.business.BusinessDataImporter;
 import br.com.conversa.app.conversation.ReplyWorker;
@@ -301,7 +302,7 @@ class OrderFlowIT {
     private String lastText() {
         return sent().stream()
                 .filter(body -> "text".equals(body.path("type").asString()) && CUSTOMER.equals(body.path("to").asString()))
-                .map(body -> body.path("text").path("body").asString())
+                .map(body -> PrivacyNotices.strip(body.path("text").path("body").asString()))
                 .reduce((first, second) -> second).orElseThrow();
     }
 

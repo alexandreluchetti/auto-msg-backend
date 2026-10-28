@@ -29,6 +29,8 @@ class SecurityConfiguration {
         http.authorizeHttpRequests(requests -> requests
                         .requestMatchers("/webhooks/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/health").permitAll()
+                        // Scraped by Prometheus on the internal network; Caddy does not route it.
+                        .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
                         .requestMatchers("/api/**").hasRole("STAFF")

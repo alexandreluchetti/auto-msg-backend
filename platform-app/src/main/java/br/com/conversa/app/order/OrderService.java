@@ -1,6 +1,7 @@
 package br.com.conversa.app.order;
 
 import br.com.conversa.app.api.PanelEvent;
+import br.com.conversa.app.ops.OperationsMetrics;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.outbound.OutboundRequest;
 import br.com.conversa.core.order.OrderDraft;
@@ -45,14 +46,16 @@ public class OrderService {
     private final OutboundMessageRepository outbound;
     private final OrderProperties properties;
     private final ApplicationEventPublisher events;
+    private final OperationsMetrics metrics;
     private final ObjectMapper mapper;
 
     OrderService(JdbcClient jdbc, OutboundMessageRepository outbound, OrderProperties properties,
-                 ApplicationEventPublisher events, ObjectMapper mapper) {
+                 ApplicationEventPublisher events, OperationsMetrics metrics, ObjectMapper mapper) {
         this.jdbc = jdbc;
         this.outbound = outbound;
         this.properties = properties;
         this.events = events;
+        this.metrics = metrics;
         this.mapper = mapper;
     }
 
@@ -158,6 +161,7 @@ public class OrderService {
                 .param("id", conversation).update();
         alertStaff(tenant, phoneNumberId, number, customerLabel, draft, config);
         events.publishEvent(PanelEvent.orderCreated(tenant, order));
+        metrics.orderCreated(tenant, draft.total());
         log.info("Order #{} created for tenant {}", number, tenant);
         return new Confirmation(Result.CREATED, number, confirmedText(number, draft));
     }

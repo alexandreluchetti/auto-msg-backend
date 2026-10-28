@@ -4,6 +4,7 @@ import br.com.conversa.app.conversation.AssistantProperties;
 import br.com.conversa.app.conversation.ConversationRepository;
 import br.com.conversa.app.conversation.HandoffService;
 import br.com.conversa.app.inbound.InboundEventQueue.ClaimedInbound;
+import br.com.conversa.app.ops.OperationsMetrics;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.tenant.TenantService;
 import br.com.conversa.app.tenant.TenantTransactions;
@@ -37,11 +38,12 @@ class InboundEventProcessor {
     private final LlmClient llm;
     private final HandoffService handoff;
     private final TenantService tenantService;
+    private final OperationsMetrics metrics;
     private final ObjectMapper mapper;
 
     InboundEventProcessor(OutboundMessageRepository outbound, ConversationRepository conversations,
                           TenantTransactions tenants, AssistantProperties assistant, LlmClient llm,
-                          HandoffService handoff, TenantService tenantService,
+                          HandoffService handoff, TenantService tenantService, OperationsMetrics metrics,
                           ObjectMapper mapper) {
         this.outbound = outbound;
         this.conversations = conversations;
@@ -50,6 +52,7 @@ class InboundEventProcessor {
         this.llm = llm;
         this.handoff = handoff;
         this.tenantService = tenantService;
+        this.metrics = metrics;
         this.mapper = mapper;
     }
 
@@ -64,12 +67,18 @@ class InboundEventProcessor {
                     recordCustomerMessage(event, item, payload.path("contact").path("profile").path("name"));
                 }
             }
-            case STATUS -> outbound.updateDeliveryStatus(
-                    item.path("id").asString(),
-                    item.path("status").asString(),
-                    textOrNull(item.path("pricing").path("category")),
-                    item.path("pricing").path("billable").isBoolean()
-                            ? item.path("pricing").path("billable").asBoolean() : null);
+            case STATUS -> {
+                String status = item.path("status").asString();
+                outbound.updateDeliveryStatus(
+                                item.path("id").asString(),
+                                status,
+                                textOrNull(item.path("pricing").path("category")),
+                                item.path("pricing").path("billable").isBoolean()
+                                        ? item.path("pricing").path("billable").asBoolean() : null)
+                        .filter(change -> "delivered".equals(status) && Boolean.TRUE.equals(change.billable())
+                                && change.tenant() != null)
+                        .ifPresent(change -> metrics.billableMessage(change.tenant(), change.pricingCategory()));
+            }
             case ECHO -> {
                 if (event.tenantId() != null) {
                     tenants.runInTenant(event.tenantId(), () -> handoff.onStaffEcho(event.tenantId(),

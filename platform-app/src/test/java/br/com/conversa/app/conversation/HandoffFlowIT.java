@@ -1,5 +1,6 @@
 package br.com.conversa.app.conversation;
 
+import br.com.conversa.app.PrivacyNotices;
 import br.com.conversa.app.TestcontainersConfiguration;
 import br.com.conversa.app.inbound.InboundWorker;
 import br.com.conversa.app.outbound.FakeGraphApi;
@@ -225,14 +226,14 @@ class HandoffFlowIT {
 
     private List<String> messages() {
         return jdbc.sql("SELECT direction || ':' || author || ':' || text FROM message ORDER BY created_at")
-                .query(String.class).list();
+                .query(String.class).list().stream().map(PrivacyNotices::strip).toList();
     }
 
     private List<String> sentTexts() {
         return graph.requestBodies().stream()
                 .map(mapper::readTree)
                 .filter(body -> "text".equals(body.path("type").asString()) && CUSTOMER.equals(body.path("to").asString()))
-                .map(body -> body.path("text").path("body").asString())
+                .map(body -> PrivacyNotices.strip(body.path("text").path("body").asString()))
                 .toList();
     }
 
