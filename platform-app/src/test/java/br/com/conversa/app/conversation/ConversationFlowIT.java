@@ -153,7 +153,8 @@ class ConversationFlowIT {
         var request = llm.requests().getFirst();
         assertThat(request.system()).contains("Você é Rita", "Cantina da Praça");
         assertThat(request.tools()).extracting(spec -> spec.name())
-                .containsExactly("search_menu", "get_business_hours", "get_delivery_fee", "get_business_info");
+                .containsExactly("search_menu", "get_business_hours", "get_delivery_fee", "get_business_info",
+                        "request_human");
         var toolResult = (LlmContent.ToolOutcome) llm.requests().get(1).messages().getLast().content().getFirst();
         assertThat(toolResult.contentJson()).contains("R$ 39,90");
 
@@ -231,7 +232,7 @@ class ConversationFlowIT {
     }
 
     private List<String> messages() {
-        return jdbc.sql("SELECT direction || ':' || text FROM message ORDER BY sent_at, created_at")
+        return jdbc.sql("SELECT direction || ':' || text FROM message ORDER BY created_at")
                 .query(String.class).list();
     }
 

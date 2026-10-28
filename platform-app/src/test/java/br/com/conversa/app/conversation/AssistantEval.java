@@ -58,8 +58,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * -Dsurefire.failIfNoSpecifiedTests=false}; optional {@code -Deval.model=claude-sonnet-5-5},
  * {@code -Deval.effort=medium}, {@code -Deval.only=menu-01,hours-02}.
  *
- * <p>Grading is deterministic: the tools that must be called, case/accent-insensitive phrases the
- * answer must (or must not) contain, and that every "R$" amount in the answer is a real price of
+ * <p>Grading is deterministic: the tools that must be called, whether the conversation goes to
+ * staff ({@code request_human}), case/accent-insensitive phrases the answer must (or must not)
+ * contain, and that every "R$" amount in the answer is a real price of
  * the fixture (an item, an option, an item with one option, a fee or the minimum order).
  * Acceptance (ROADMAP M5): at least 95% of the questions pass and zero invented prices.
  */
@@ -139,11 +140,17 @@ class AssistantEval {
     }
 
     private Result grade(JsonNode question, AssistantEngine.Answer answer, Set<String> realPrices, BigDecimal cost) {
-        String text = answer.text();
+        boolean handedOver = answer.outcome() == AssistantEngine.Outcome.HANDOFF;
+        String text = handedOver ? HandoffService.CUSTOMER_NOTICE + " [request_human: " + answer.handoffDetail() + "]"
+                : answer.text();
         String normalized = SearchText.normalize(text);
         List<String> failures = new ArrayList<>();
         if (answer.outcome() == AssistantEngine.Outcome.FALLBACK) {
             failures.add("fallback answer");
+        }
+        boolean expectHandoff = question.path("expectHandoff").asBoolean(false);
+        if (expectHandoff != handedOver) {
+            failures.add(expectHandoff ? "did not hand over to staff" : "handed over to staff");
         }
         for (JsonNode tool : question.path("tools")) {
             if (!answer.toolsCalled().contains(tool.asString())) {

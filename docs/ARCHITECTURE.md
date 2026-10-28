@@ -229,6 +229,27 @@ See [ADR-008](adr/ADR-008-human-handoff.md).
 - **Back to the bot:** the pause expires, or the "hand back to bot" button in the panel.
 - **Staff alert:** a card in the panel + a message to the configured staff numbers.
 
+**Implemented (M6):**
+
+- Echoes (`smb_message_echoes`) are stored as `message` rows by `STAFF` and pause the bot
+  (`state = HUMAN`, `handoff_reason = STAFF_REPLY`, pending answer cancelled); every new echo
+  renews `paused_until`. No alert: staff are already in the conversation.
+- `ReplyWorker` checks, in order: a plain request for a person in the customer's last message
+  (`HandoffService.asksForPerson`, no model call); the assistant's control tool `request_human`
+  (added by the engine to every pack, with a reason); a second consecutive fallback answer
+  (`conversation.failure_streak`, threshold `conversa.handoff.failure-threshold`). Each of these
+  sends the customer a fixed notice, alerts every `staffNumbers` entry with the template
+  `conversa.handoff.staff-alert-template` (two body parameters: customer name with the last 4
+  digits of the number, and the reason) and pauses the bot.
+- While `HUMAN`, customer messages are only stored. The first customer message after
+  `paused_until` hands the conversation back to the bot (no sweep job needed: the bot only acts on
+  customer messages); staff messages appear in its history marked as the team's.
+- An answer is delivered only if the bot is still in charge and no newer customer message arrived
+  while it was built (the next answer covers it). History is ordered by arrival, since Meta's
+  timestamps have one-second resolution.
+- Until checkout exists (M7), the assistant hands orders and complaints to staff with
+  `request_human`.
+
 ## 7. Multi-tenant model and segments
 
 See [ADR-003](adr/ADR-003-multi-tenancy.md).

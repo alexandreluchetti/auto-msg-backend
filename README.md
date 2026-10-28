@@ -102,6 +102,7 @@ starts PostgreSQL with Testcontainers.
 | `WORKERS_ENABLED` | Runs the inbound and outbound queue workers | `true` |
 | `ASSISTANT_ENABLED` | Bot answers customers (needs `ANTHROPIC_API_KEY`); off only records the messages | `true` |
 | `ASSISTANT_EFFORT` | Default reasoning effort of the assistant (`low`, `medium`, `high`); tenants may override it | `low` |
+| `HANDOFF_STAFF_ALERT_TEMPLATE` | Approved utility template that alerts staff numbers of a handoff (body parameters: customer, reason); empty sends no WhatsApp alert | empty |
 | `BOOTSTRAP_TENANT_SLUG` / `BOOTSTRAP_TENANT_NAME` | Tenant created at startup (pilot restaurant; test number in development). Empty slug: no bootstrap | empty |
 | `BOOTSTRAP_TENANT_SEGMENT` | Segment Pack of that tenant | `restaurant` |
 | `BOOTSTRAP_TENANT_CONFIG` | Tenant settings as a JSON object, merged over the pack defaults and validated by its schema; replaces the stored settings on every start | empty (keep stored) |

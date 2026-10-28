@@ -15,11 +15,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * Answers conversations whose reply is due (after the debounce): claims one with a lease, builds
@@ -41,13 +43,16 @@ public class ReplyWorker {
     private final OutboundMessageRepository outbound;
     private final AssistantProperties properties;
     private final AnthropicProperties anthropic;
+    private final HandoffService handoff;
+    private final HandoffProperties handoffProperties;
     private final TransactionTemplate transactions;
     private final ObjectMapper mapper;
     private final Clock clock;
 
     ReplyWorker(ConversationRepository conversations, AssistantEngine engine, TenantTransactions tenants,
                 TenantService tenantService, BusinessDirectory directory, OutboundMessageRepository outbound,
-                AssistantProperties properties, AnthropicProperties anthropic, TransactionTemplate transactions,
+                AssistantProperties properties, AnthropicProperties anthropic, HandoffService handoff,
+                HandoffProperties handoffProperties, TransactionTemplate transactions,
                 ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
         this.engine = engine;
@@ -57,6 +62,8 @@ public class ReplyWorker {
         this.outbound = outbound;
         this.properties = properties;
         this.anthropic = anthropic;
+        this.handoff = handoff;
+        this.handoffProperties = handoffProperties;
         this.transactions = transactions;
         this.mapper = mapper;
         this.clock = clock;
@@ -87,20 +94,34 @@ public class ReplyWorker {
                 return;
             }
             String lastWamid = history.getLast().wamid();
+            JsonNode config = tenantService.effectiveConfig(tenant);
+            if (HandoffService.asksForPerson(history.getLast().text())) {
+                deliver(claim, lastWamid, current -> handoff.handOver(tenant, current, lastWamid,
+                        HandoffReason.CUSTOMER_REQUEST, null, config));
+                return;
+            }
             var answer = engine.answer(new AssistantEngine.Turn(tenant, claim.conversationId(),
-                    tenantService.packOf(tenant), tenantService.effectiveConfig(tenant).toString(),
+                    tenantService.packOf(tenant), config.toString(),
                     directory.openingHours(tenant).zone(), history, anthropic.defaultModel(),
                     claim.attempts() >= properties.maxAttempts()));
-            String ref = "reply:" + claim.conversationId() + ":" + lastWamid;
-            tenants.runInTenant(tenant, () -> {
-                if (conversations.recordBotMessage(tenant, claim.conversationId(), ref, answer.text(), clock.instant())) {
-                    outbound.enqueue("read:" + lastWamid, tenant, OutboundRequest.readReceipt(
-                            conversation.phoneNumberId(), conversation.waId(), lastWamid, mapper));
-                    outbound.enqueue(ref, tenant, OutboundRequest.text(
-                            conversation.phoneNumberId(), conversation.waId(), answer.text(), mapper));
-                }
-                conversations.finish(claim);
-            });
+            int failures = answer.outcome() == AssistantEngine.Outcome.FALLBACK ? conversation.failureStreak() + 1 : 0;
+            if (answer.outcome() == AssistantEngine.Outcome.HANDOFF || failures >= handoffProperties.failureThreshold()) {
+                HandoffReason reason = answer.outcome() == AssistantEngine.Outcome.HANDOFF
+                        ? HandoffReason.BOT_REQUEST : HandoffReason.REPEATED_FAILURES;
+                deliver(claim, lastWamid, current -> handoff.handOver(tenant, current, lastWamid, reason,
+                        answer.handoffDetail(), config));
+            } else {
+                String ref = "reply:" + claim.conversationId() + ":" + lastWamid;
+                deliver(claim, lastWamid, current -> {
+                    if (conversations.recordBotMessage(tenant, current.id(), ref, answer.text(), clock.instant())) {
+                        outbound.enqueue("read:" + lastWamid, tenant, OutboundRequest.readReceipt(
+                                current.phoneNumberId(), current.waId(), lastWamid, mapper));
+                        outbound.enqueue(ref, tenant, OutboundRequest.text(
+                                current.phoneNumberId(), current.waId(), answer.text(), mapper));
+                    }
+                    conversations.setFailureStreak(current.id(), failures);
+                });
+            }
             log.info("Answered conversation {} ({}, tools {})", claim.conversationId(), answer.outcome(),
                     answer.toolsCalled());
         } catch (LlmException e) {
@@ -118,5 +139,22 @@ public class ReplyWorker {
                 }
             });
         }
+    }
+
+    /**
+     * Runs {@code effect} in one transaction of the tenant, only if the bot is still in charge and no
+     * newer customer message arrived while the answer was built (then the next answer covers it).
+     */
+    private void deliver(ClaimedReply claim, String lastWamid, Consumer<ConversationView> effect) {
+        tenants.runInTenant(claim.tenant(), () -> {
+            ConversationView current = conversations.findForUpdate(claim.conversationId()).orElse(null);
+            List<StoredMessage> latest = conversations.recentMessages(claim.conversationId(), 1);
+            boolean stillDue = current != null && "BOT".equals(current.state())
+                    && !latest.isEmpty() && lastWamid.equals(latest.getLast().wamid());
+            if (stillDue) {
+                effect.accept(current);
+            }
+            conversations.finish(claim);
+        });
     }
 }

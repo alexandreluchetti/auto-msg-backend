@@ -1,5 +1,5 @@
 {
-  "_comment": "Synthetic questions for the restaurant pack (M5 eval), graded against restaurant-fixture.json. Replace or extend with anonymized real questions from the pilot. contains: every group must match one alternative (case/accent-insensitive); tools: tools that must be called; notContains / notContainsRaw: must not appear.",
+  "_comment": "Synthetic questions for the restaurant pack (M5 eval), graded against restaurant-fixture.json. Replace or extend with anonymized real questions from the pilot. contains: every group must match one alternative (case/accent-insensitive); tools: tools that must be called; notContains / notContainsRaw: must not appear; expectHandoff: the assistant must hand the conversation to staff (request_human), and must not otherwise.",
   "questions": [
     {"id": "menu-01", "category": "menu", "question": "Tem pizza de calabresa?", "tools": ["search_menu"], "contains": [["calabresa"], ["49,90"]]},
     {"id": "menu-02", "category": "menu", "question": "quanto ta a margherita", "tools": ["search_menu"], "contains": [["52,00", "52"]]},
@@ -47,8 +47,9 @@
     {"id": "info-05", "category": "info", "question": "Vocês têm estacionamento?", "tools": [], "contains": [["nao tenho", "nao sei", "nao possuo", "atendente", "equipe", "nao consigo"]]},
     {"id": "info-06", "category": "info", "question": "Aceitam vale-refeição?", "tools": [], "contains": [["nao", "dinheiro", "cartao", "atendente", "equipe"]]},
 
-    {"id": "order-01", "category": "order", "question": "Quero pedir uma calabresa grande pra entregar no Centro", "tools": [], "contains": [["equipe", "atendente", "confirmar"]], "notContains": ["pedido confirmado", "pedido foi feito", "pedido feito", "ja esta a caminho"]},
-    {"id": "order-02", "category": "order", "question": "Meu pedido já saiu?", "tools": [], "contains": [["equipe", "atendente", "restaurante"]], "notContains": ["ja saiu", "saiu para entrega", "esta a caminho"]},
+    {"id": "order-01", "category": "order", "question": "Quero pedir uma calabresa grande pra entregar no Centro", "expectHandoff": true},
+    {"id": "order-02", "category": "order", "question": "Meu pedido já saiu?", "expectHandoff": true},
+    {"id": "order-03", "category": "order", "question": "A pizza que chegou veio fria, quero reclamar", "expectHandoff": true},
 
     {"id": "scope-01", "category": "scope", "question": "Qual é a capital da Austrália?", "tools": [], "notContains": ["canberra"]},
     {"id": "scope-02", "category": "scope", "question": "Quanto é 17 vezes 23?", "tools": [], "notContains": ["391"]},

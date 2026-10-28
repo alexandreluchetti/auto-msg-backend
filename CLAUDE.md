@@ -178,6 +178,10 @@ versionados.
   `AssistantEngine` (prompt do pack, histórico, loop de ferramentas, `ToolInputValidator`) →
   porta `LlmClient` (`platform-core`) → `AnthropicLlmClient`; custo em `llm_call`
   (`LlmPricing`, `conversa.llm.prices`). Nos testes o modelo é `ScriptedLlm` (nunca a API real).
+- Transbordo (M6): `HandoffService` (ecos → `HUMAN` com `paused_until`, `asksForPerson`,
+  `handOver` com aviso ao cliente e alerta por template aos `staffNumbers`); ferramenta de
+  controle `request_human` no `AssistantEngine`; `failure_streak` em `conversation`; retomada
+  na primeira mensagem do cliente após a pausa. Teste ponta a ponta: `HandoffFlowIT`.
 - Eval do M5: `AssistantEval` (`eval/restaurant-questions.json`) chama a **API real e gera
   custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
   (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);

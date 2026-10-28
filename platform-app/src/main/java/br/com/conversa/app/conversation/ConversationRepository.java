@@ -13,8 +13,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Contacts, conversations and their messages. Everything except {@link #claimDue} runs inside the
- * caller's tenant context (RLS); claiming is cross-tenant work of the reply worker (ADR-010).
+ * Contacts, conversations and their messages. Everything except {@link #claimDue} and the claim
+ * bookkeeping runs inside the caller's tenant context (RLS); claiming is cross-tenant work of the
+ * reply worker (ADR-010).
  */
 @Repository
 public class ConversationRepository {
@@ -27,7 +28,8 @@ public class ConversationRepository {
         }
     }
 
-    public record ConversationView(UUID id, String phoneNumberId, String waId, String state) {
+    public record ConversationView(UUID id, String phoneNumberId, String waId, String displayName, String state,
+                                   int failureStreak) {
     }
 
     /** A conversation reserved for one answer; {@code dueAt} is the lease the claim wrote. */
@@ -42,45 +44,26 @@ public class ConversationRepository {
 
     /**
      * Stores a customer message once (by wamid) in the customer's conversation, creating both when
-     * needed. When {@code answerAfter} is set and the bot is in charge, the answer is (re)scheduled
-     * for that moment, so a burst of messages gets one answer.
+     * needed. A pause that has expired ends here: the bot takes the conversation back. When
+     * {@code answerAfter} is set and the bot is in charge, the answer is (re)scheduled for that
+     * moment, so a burst of messages gets one answer.
      *
      * @return the conversation id
      */
-    public UUID recordCustomerMessage(TenantId tenant, String phoneNumberId, String waId, String wamid, String type,
-                                      String text, Instant sentAt, Duration answerAfter) {
-        UUID contact = jdbc.sql("""
-                        INSERT INTO contact (tenant_id, wa_id) VALUES (:tenant, :waId)
-                        ON CONFLICT (tenant_id, wa_id) DO UPDATE SET wa_id = excluded.wa_id
-                        RETURNING id
-                        """)
-                .param("tenant", tenant.value())
-                .param("waId", waId)
-                .query(UUID.class).single();
-        UUID conversation = jdbc.sql("""
-                        INSERT INTO conversation (tenant_id, contact_id, phone_number_id)
-                        VALUES (:tenant, :contact, :phone)
-                        ON CONFLICT (tenant_id, contact_id, phone_number_id) DO UPDATE SET updated_at = now()
-                        RETURNING id
-                        """)
-                .param("tenant", tenant.value())
-                .param("contact", contact)
-                .param("phone", phoneNumberId)
-                .query(UUID.class).single();
-        int inserted = jdbc.sql("""
-                        INSERT INTO message (tenant_id, conversation_id, ref, direction, author, wamid, type, text, sent_at)
-                        VALUES (:tenant, :conversation, :ref, 'IN', 'CUSTOMER', :wamid, :type, :text, :sentAt)
-                        ON CONFLICT (conversation_id, ref) DO NOTHING
-                        """)
-                .param("tenant", tenant.value())
-                .param("conversation", conversation)
-                .param("ref", "msg:" + wamid)
-                .param("wamid", wamid)
-                .param("type", type)
-                .param("text", text)
-                .param("sentAt", OffsetDateTime.ofInstant(sentAt, ZoneOffset.UTC))
-                .update();
-        if (inserted > 0 && answerAfter != null) {
+    public UUID recordCustomerMessage(TenantId tenant, String phoneNumberId, String waId, String displayName,
+                                      String wamid, String type, String text, Instant sentAt, Duration answerAfter) {
+        UUID conversation = conversationOf(tenant, phoneNumberId, waId, displayName);
+        boolean inserted = insertMessage(tenant, conversation, "msg:" + wamid, "IN", "CUSTOMER", wamid, type, text,
+                sentAt);
+        if (inserted) {
+            jdbc.sql("""
+                            UPDATE conversation SET state = 'BOT', paused_until = NULL, updated_at = now()
+                            WHERE id = :id AND state = 'HUMAN' AND paused_until <= now()
+                            """)
+                    .param("id", conversation)
+                    .update();
+        }
+        if (inserted && answerAfter != null) {
             jdbc.sql("""
                             UPDATE conversation
                             SET reply_due_at = now() + make_interval(secs => :seconds), reply_attempts = 0, updated_at = now()
@@ -91,6 +74,56 @@ public class ConversationRepository {
                     .update();
         }
         return conversation;
+    }
+
+    /**
+     * Stores a message staff sent from the WhatsApp Business app (an echo) once, by wamid.
+     *
+     * @return the conversation id, and whether the echo was new
+     */
+    public StaffEcho recordStaffEcho(TenantId tenant, String phoneNumberId, String waId, String wamid, String type,
+                                     String text, Instant sentAt) {
+        UUID conversation = conversationOf(tenant, phoneNumberId, waId, null);
+        return new StaffEcho(conversation,
+                insertMessage(tenant, conversation, "echo:" + wamid, "OUT", "STAFF", wamid, type, text, sentAt));
+    }
+
+    public record StaffEcho(UUID conversationId, boolean isNew) {
+    }
+
+    /**
+     * Hands the conversation to staff until {@code until}: the bot stops answering and any pending
+     * answer is cancelled.
+     */
+    public void pause(UUID conversation, Instant until, String reason) {
+        jdbc.sql("""
+                        UPDATE conversation
+                        SET state = 'HUMAN', paused_until = :until, handoff_reason = :reason, handoff_at = now(),
+                            reply_due_at = NULL, failure_streak = 0, updated_at = now()
+                        WHERE id = :id
+                        """)
+                .param("until", OffsetDateTime.ofInstant(until, ZoneOffset.UTC))
+                .param("reason", reason)
+                .param("id", conversation)
+                .update();
+    }
+
+    /** Ends a pause now (the panel's "hand back to bot", M8). */
+    public void resume(UUID conversation) {
+        jdbc.sql("""
+                        UPDATE conversation SET state = 'BOT', paused_until = NULL, failure_streak = 0, updated_at = now()
+                        WHERE id = :id AND state = 'HUMAN'
+                        """)
+                .param("id", conversation)
+                .update();
+    }
+
+    /** Consecutive answers the bot could not give; 0 after a good one. */
+    public void setFailureStreak(UUID conversation, int streak) {
+        jdbc.sql("UPDATE conversation SET failure_streak = :streak, updated_at = now() WHERE id = :id")
+                .param("streak", streak)
+                .param("id", conversation)
+                .update();
     }
 
     /** Owner-role claim of the conversation whose answer is due first, leased for {@code lease}. */
@@ -136,21 +169,34 @@ public class ConversationRepository {
     }
 
     public Optional<ConversationView> find(UUID conversation) {
+        return find(conversation, false);
+    }
+
+    /** Same as {@link #find(UUID)}, locking the row until the transaction ends. */
+    public Optional<ConversationView> findForUpdate(UUID conversation) {
+        return find(conversation, true);
+    }
+
+    private Optional<ConversationView> find(UUID conversation, boolean lock) {
         return jdbc.sql("""
-                        SELECT c.id, c.phone_number_id, k.wa_id, c.state
+                        SELECT c.id, c.phone_number_id, k.wa_id, k.display_name, c.state, c.failure_streak
                         FROM conversation c JOIN contact k ON k.id = c.contact_id
                         WHERE c.id = :id
-                        """)
+                        """ + (lock ? " FOR UPDATE OF c" : ""))
                 .param("id", conversation)
                 .query(ConversationView.class).optional();
     }
 
-    /** The latest {@code limit} messages, oldest first. */
+    /**
+     * The latest {@code limit} messages, oldest first, in the order they were stored: Meta's
+     * timestamps have one-second resolution, too coarse to order a customer message after the
+     * bot's answer to the previous one.
+     */
     public List<StoredMessage> recentMessages(UUID conversation, int limit) {
         List<StoredMessage> newestFirst = jdbc.sql("""
                         SELECT direction, author, wamid, text, sent_at FROM message
                         WHERE conversation_id = :id
-                        ORDER BY sent_at DESC, created_at DESC
+                        ORDER BY created_at DESC
                         LIMIT :limit
                         """)
                 .param("id", conversation)
@@ -168,14 +214,46 @@ public class ConversationRepository {
      * @return false when that answer was already stored (a retried reply)
      */
     public boolean recordBotMessage(TenantId tenant, UUID conversation, String ref, String text, Instant sentAt) {
+        return insertMessage(tenant, conversation, ref, "OUT", "BOT", null, "text", text, sentAt);
+    }
+
+    private UUID conversationOf(TenantId tenant, String phoneNumberId, String waId, String displayName) {
+        UUID contact = jdbc.sql("""
+                        INSERT INTO contact (tenant_id, wa_id, display_name) VALUES (:tenant, :waId, :name)
+                        ON CONFLICT (tenant_id, wa_id)
+                            DO UPDATE SET display_name = coalesce(excluded.display_name, contact.display_name)
+                        RETURNING id
+                        """)
+                .param("tenant", tenant.value())
+                .param("waId", waId)
+                .param("name", displayName)
+                .query(UUID.class).single();
         return jdbc.sql("""
-                        INSERT INTO message (tenant_id, conversation_id, ref, direction, author, type, text, sent_at)
-                        VALUES (:tenant, :conversation, :ref, 'OUT', 'BOT', 'text', :text, :sentAt)
+                        INSERT INTO conversation (tenant_id, contact_id, phone_number_id)
+                        VALUES (:tenant, :contact, :phone)
+                        ON CONFLICT (tenant_id, contact_id, phone_number_id) DO UPDATE SET updated_at = now()
+                        RETURNING id
+                        """)
+                .param("tenant", tenant.value())
+                .param("contact", contact)
+                .param("phone", phoneNumberId)
+                .query(UUID.class).single();
+    }
+
+    private boolean insertMessage(TenantId tenant, UUID conversation, String ref, String direction, String author,
+                                  String wamid, String type, String text, Instant sentAt) {
+        return jdbc.sql("""
+                        INSERT INTO message (tenant_id, conversation_id, ref, direction, author, wamid, type, text, sent_at)
+                        VALUES (:tenant, :conversation, :ref, :direction, :author, :wamid, :type, :text, :sentAt)
                         ON CONFLICT (conversation_id, ref) DO NOTHING
                         """)
                 .param("tenant", tenant.value())
                 .param("conversation", conversation)
                 .param("ref", ref)
+                .param("direction", direction)
+                .param("author", author)
+                .param("wamid", wamid)
+                .param("type", type)
                 .param("text", text)
                 .param("sentAt", OffsetDateTime.ofInstant(sentAt, ZoneOffset.UTC))
                 .update() > 0;
