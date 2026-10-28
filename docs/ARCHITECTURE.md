@@ -133,6 +133,11 @@ sequenceDiagram
 
 Pontos importantes:
 
+- **Webhook implementado (M1):** `GET|POST /webhooks/whatsapp`. Cada notificação é dividida
+  em eventos atômicos com chave `msg:<wamid>`, `status:<wamid>:<status>`, `echo:<wamid>` ou
+  `<field>:<sha256 do change>` (demais campos). Assinatura inválida → 401; payload assinado mas
+  inválido → 400; caso contrário 200, inclusive para duplicatas. `tenant_id` fica nulo até a
+  resolução por `phone_number_id` (M3).
 - **Idempotência em 3 níveis:** `inbound_event.event_key` único (wamid da mensagem ou
   `wamid:status`), `outbound_message.idempotency_key` único, e efeitos de negócio (ex.: criar
   pedido) com chave natural (`order.confirmation_wamid`).
@@ -269,6 +274,9 @@ erDiagram
         bigint id PK
         uuid tenant_id
         text event_key UK
+        text event_type
+        text phone_number_id
+        text wa_id
         jsonb payload
         text status
         int attempts

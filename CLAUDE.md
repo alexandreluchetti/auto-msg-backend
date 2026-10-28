@@ -86,7 +86,8 @@ Pacote base `br.com.conversa.<módulo>` (`core`, `channel.whatsapp`, `llm.anthro
 - Unitários: `*Test` (JUnit 5 + AssertJ), sem Spring quando possível.
 - Integração: `*IT` com Testcontainers (`TestcontainersConfiguration`, imagem
   `pgvector/pgvector:pg17`), rodam no `verify`.
-- Payloads reais da Meta como fixtures em `src/test/resources/whatsapp/` (anonimizados).
+- Payloads da Meta como fixtures em `src/test/resources/whatsapp/` de cada módulo, com números
+  fictícios. Ao capturar payloads reais (número de teste), anonimize antes de versionar.
 - Cada marco do roadmap termina com seus critérios de aceite cobertos por teste.
 - Nunca chame a API real do WhatsApp ou do Claude em testes automatizados; use stubs da porta.
 
