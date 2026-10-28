@@ -1,0 +1,35 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "100000000000001",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "551630000000",
+              "phone_number_id": "200000000000001"
+            },
+            "contacts": [
+              {
+                "profile": { "name": "Cliente Teste" },
+                "wa_id": "5516990000001"
+              }
+            ],
+            "messages": [
+              {
+                "from": "5516990000001",
+                "id": "wamid.TEXT0001",
+                "timestamp": "1761650000",
+                "type": "text",
+                "text": { "body": "Vocês abrem hoje à noite?" }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

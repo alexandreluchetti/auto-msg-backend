@@ -1,0 +1,44 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "100000000000001",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "551630000000",
+              "phone_number_id": "200000000000001"
+            },
+            "contacts": [
+              { "profile": { "name": "Cliente A" }, "wa_id": "5516990000001" },
+              { "profile": { "name": "Cliente B" }, "wa_id": "5516990000002" }
+            ],
+            "messages": [
+              {
+                "from": "5516990000001",
+                "id": "wamid.BATCH0001",
+                "timestamp": "1761650010",
+                "type": "text",
+                "text": { "body": "quero uma calabresa" }
+              },
+              {
+                "from": "5516990000002",
+                "id": "wamid.BATCH0002",
+                "timestamp": "1761650011",
+                "type": "interactive",
+                "interactive": {
+                  "type": "button_reply",
+                  "button_reply": { "id": "checkout.confirm", "title": "Confirmar" }
+                },
+                "context": { "from": "551630000000", "id": "wamid.OUT0001" }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

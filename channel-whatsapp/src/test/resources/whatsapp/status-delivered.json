@@ -1,0 +1,34 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "100000000000001",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "551630000000",
+              "phone_number_id": "200000000000001"
+            },
+            "statuses": [
+              {
+                "id": "wamid.OUT0001",
+                "status": "delivered",
+                "timestamp": "1761650020",
+                "recipient_id": "5516990000001",
+                "pricing": {
+                  "billable": true,
+                  "pricing_model": "PMP",
+                  "type": "regular",
+                  "category": "service"
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

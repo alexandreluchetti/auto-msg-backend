@@ -20,7 +20,7 @@ Caminho crítico para ir ao ar (ver ADR-001):
 | Marco | Entrega | Critério de aceite |
 |---|---|---|
 | **M0 — Fundação** ✅ | Docs, ADRs, esqueleto multi-módulo, Docker Compose, health check, ArchUnit | `mvnw verify` verde; `/actuator/health` = UP com Postgres |
-| **M1 — Webhook de entrada** | `GET` de verificação, `POST` com HMAC, `inbound_event` idempotente, parsing de mensagens/status/ecos | Testes com payloads reais (fixtures); duplicata não gera 2º evento; assinatura inválida → 401 |
+| **M1 — Webhook de entrada** ✅ | `GET` de verificação, `POST` com HMAC, `inbound_event` idempotente, parsing de mensagens/status/ecos | Testes com payloads reais (fixtures); duplicata não gera 2º evento; assinatura inválida → 401 |
 | **M2 — Saída e janela 24h** | `outbound_message` (outbox), `SenderWorker` com retry, janela de 24h, *mark as read*; bot "eco" no número de teste | Mensagem enviada ao número de teste; reenvio não duplica; fora da janela exige template |
 | **M3 — Tenants e segmentos** | `tenant`, `tenant_channel`, RLS + `TenantContext`, SPI `SegmentPack`, registro de packs, validação de `config` por JSON Schema; seed do restaurante | Teste prova que tenant A não lê dados de B; config inválida é rejeitada |
 | **M4 — Catálogo e informações** | Tabelas de catálogo/horários/zonas, importação de planilha (CSV), ferramentas de leitura | Ferramentas retornam dados corretos do tenant (testes unitários) |

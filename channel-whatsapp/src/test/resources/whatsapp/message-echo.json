@@ -1,0 +1,30 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "100000000000001",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "551630000000",
+              "phone_number_id": "200000000000001"
+            },
+            "message_echoes": [
+              {
+                "from": "551630000000",
+                "to": "5516990000001",
+                "id": "wamid.ECHO0001",
+                "timestamp": "1761650030",
+                "type": "text",
+                "text": { "body": "Oi! Aqui é a Ana, vou te ajudar com o pedido." }
+              }
+            ]
+          },
+          "field": "smb_message_echoes"
+        }
+      ]
+    }
+  ]
+}
