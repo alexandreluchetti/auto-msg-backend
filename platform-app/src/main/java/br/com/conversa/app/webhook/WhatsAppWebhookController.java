@@ -21,8 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * Webhook da WhatsApp Cloud API. Só valida, grava e responde: o processamento é assíncrono
- * (ADR-004). Responder rápido evita reentregas da Meta.
+ * WhatsApp Cloud API webhook. It only validates, stores and answers: processing is asynchronous
+ * (ADR-004). Answering fast avoids redeliveries from Meta.
  */
 @RestController
 @RequestMapping("/webhooks/whatsapp")
@@ -50,7 +50,7 @@ class WhatsAppWebhookController {
         return WebhookChallenge.verify(mode, token, challenge, properties.verifyToken())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> {
-                    log.warn("Verificação do webhook recusada");
+                    log.warn("Webhook verification refused");
                     return ResponseEntity.status(403).build();
                 });
     }
@@ -59,18 +59,18 @@ class WhatsAppWebhookController {
     ResponseEntity<Void> receive(@RequestBody byte[] body,
                                  @RequestHeader(name = "X-Hub-Signature-256", required = false) String signature) {
         if (!signatureVerifier.isValid(body, signature)) {
-            log.warn("Webhook com assinatura inválida descartado");
+            log.warn("Webhook with invalid signature discarded");
             return ResponseEntity.status(401).build();
         }
         List<WebhookEvent> events;
         try {
             events = parser.parse(body);
         } catch (InvalidWebhookPayloadException e) {
-            log.warn("Webhook assinado com payload inválido: {}", e.getMessage());
+            log.warn("Signed webhook with invalid payload: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
         int inserted = repository.saveAll(events);
-        log.info("Webhook recebido: {} evento(s), {} novo(s), {} duplicado(s)",
+        log.info("Webhook received: {} event(s), {} new, {} duplicate(s)",
                 events.size(), inserted, events.size() - inserted);
         return ResponseEntity.ok().build();
     }

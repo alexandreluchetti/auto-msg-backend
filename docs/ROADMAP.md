@@ -1,52 +1,53 @@
 # Roadmap
 
-Cada marco é pequeno, entrega algo testável e termina com testes automatizados verdes.
-"Pronto" = critério de aceite abaixo atendido + docs atualizadas.
+Each milestone is small, delivers something testable and ends with green automated tests.
+"Done" = acceptance criteria below met + docs updated.
 
-## Trilha paralela — onboarding na Meta (começar já)
+## Parallel track — Meta onboarding (start now)
 
-Caminho crítico para ir ao ar (ver ADR-001):
+Critical path to go live (see ADR-001):
 
-- [ ] Verificação do negócio no Meta Business (portfólio da plataforma).
-- [ ] App na Meta + cadastro como **Tech Provider** + Embedded Signup com *session logging*.
-- [ ] Número de teste da Cloud API para desenvolvimento (M1–M8 rodam nele).
-- [ ] Decidir plano B (BSP com coexistência) se o cadastro travar.
-- [ ] Contrato/DPA com o restaurante e política de privacidade publicada.
-- [ ] Levantar com o restaurante: cardápio em planilha, bairros/taxas, horários, formas de
-      pagamento, números da equipe, quem usa WhatsApp em qual dispositivo (Windows ≠ suportado).
+- [ ] Business verification in Meta Business (platform portfolio).
+- [ ] Meta app + **Tech Provider** registration + Embedded Signup with session logging.
+- [ ] Cloud API test number for development (M1–M8 run on it).
+- [ ] Decide plan B (BSP with coexistence) if the registration stalls.
+- [ ] Contract/DPA with the restaurant and a published privacy policy.
+- [ ] Gather from the restaurant: menu as a spreadsheet, neighborhoods/fees, opening hours,
+      payment methods, staff numbers, who uses WhatsApp on which device (Windows is not
+      supported).
 
-## MVP — restaurante (Bonfim Paulista)
+## MVP — restaurant (Bonfim Paulista)
 
-| Marco | Entrega | Critério de aceite |
+| Milestone | Delivery | Acceptance criteria |
 |---|---|---|
-| **M0 — Fundação** ✅ | Docs, ADRs, esqueleto multi-módulo, Docker Compose, health check, ArchUnit | `mvnw verify` verde; `/actuator/health` = UP com Postgres |
-| **M1 — Webhook de entrada** ✅ | `GET` de verificação, `POST` com HMAC, `inbound_event` idempotente, parsing de mensagens/status/ecos | Testes com payloads reais (fixtures); duplicata não gera 2º evento; assinatura inválida → 401 |
-| **M2 — Saída e janela 24h** | `outbound_message` (outbox), `SenderWorker` com retry, janela de 24h, *mark as read*; bot "eco" no número de teste | Mensagem enviada ao número de teste; reenvio não duplica; fora da janela exige template |
-| **M3 — Tenants e segmentos** | `tenant`, `tenant_channel`, RLS + `TenantContext`, SPI `SegmentPack`, registro de packs, validação de `config` por JSON Schema; seed do restaurante | Teste prova que tenant A não lê dados de B; config inválida é rejeitada |
-| **M4 — Catálogo e informações** | Tabelas de catálogo/horários/zonas, importação de planilha (CSV), ferramentas de leitura | Ferramentas retornam dados corretos do tenant (testes unitários) |
-| **M5 — Respostas com LLM** | `LlmClient` + adaptador Claude, loop de ferramentas, prompts do pack, *scope guard*, registro de custo; **eval set** com ~50 perguntas reais | ≥ 95% das perguntas do eval respondidas corretamente; zero preço inventado; custo por conversa medido |
-| **M6 — Transbordo** | Guard + `request_human`, ecos → `HUMAN`, pausa/timeout, aviso à equipe | Eco pausa o bot; timeout devolve; teste de ponta a ponta com fixtures |
-| **M7 — Pedido ponta a ponta** | Carrinho via ferramentas, fluxo de checkout determinístico (entrega/retirada, endereço/bairro, pagamento, troco), confirmação por botão, persistência idempotente | Pedido criado só com clique; total confere com o banco; clique duplicado não duplica pedido |
-| **M8 — Painel de pedidos** | Criar o repo `auto-msg-frontend`; API REST + SSE no backend; login da equipe, quadro de pedidos (SSE + alerta sonoro), mudança de status notifica cliente (serviço ou template), "devolver ao bot" | Pedido aparece em < 3 s; mudança de status chega ao cliente |
-| **M9 — LGPD e operação** | Aviso de privacidade, "apagar meus dados", job de retenção, métricas de custo por tenant, backup, deploy na VPS com TLS | Pedido de exclusão anonimiza dados; backup restaurado em teste; dashboards básicos |
-| **Piloto** | Onboarding por coexistência do número real; 1–2 semanas acompanhando conversas | Taxa de transbordo e erros dentro do combinado com o restaurante |
+| **M0 — Foundation** ✅ | Docs, ADRs, multi-module skeleton, Docker Compose, health check, ArchUnit | `mvnw verify` green; `/actuator/health` = UP with PostgreSQL |
+| **M1 — Inbound webhook** ✅ | Verification `GET`, `POST` with HMAC, idempotent `inbound_event`, parsing of messages/statuses/echoes | Tests with real payloads (fixtures); a duplicate creates no second event; invalid signature → 401 |
+| **M2 — Outbound and 24h window** | `outbound_message` (outbox), `SenderWorker` with retry, 24h window, mark as read; "echo" bot on the test number | Message sent to the test number; resend does not duplicate; outside the window a template is required |
+| **M3 — Tenants and segments** | `tenant`, `tenant_channel`, RLS + `TenantContext`, `SegmentPack` SPI, pack registry, `config` validation by JSON Schema; restaurant seed | Test proves tenant A cannot read B's data; invalid config is rejected |
+| **M4 — Catalog and information** | Catalog/opening hours/zones tables, spreadsheet import (CSV), read tools | Tools return the tenant's correct data (unit tests) |
+| **M5 — LLM answers** | `LlmClient` + Claude adapter, tool loop, pack prompts, scope guard, cost recording; **eval set** with ~50 real questions | ≥ 95% of eval questions answered correctly; zero invented prices; cost per conversation measured |
+| **M6 — Handoff** | Guard + `request_human`, echoes → `HUMAN`, pause/timeout, staff alert | An echo pauses the bot; timeout hands back; end-to-end test with fixtures |
+| **M7 — End-to-end order** | Cart through tools, deterministic checkout flow (delivery/pickup, address/neighborhood, payment, change), confirmation by button, idempotent persistence | Order created only by a click; total matches the database; a duplicate click creates no second order |
+| **M8 — Orders panel** | Create the `auto-msg-frontend` repo; REST + SSE API in the backend; staff login, orders board (SSE + sound alert), status change notifies the customer (service or template), "hand back to bot" | Order shows up in < 3 s; status change reaches the customer |
+| **M9 — LGPD and operations** | Privacy notice, "delete my data", retention job, cost metrics per tenant, backup, deploy on the VPS with TLS | Deletion request anonymizes data; backup restored in a test; basic dashboards |
+| **Pilot** | Coexistence onboarding of the real number; 1–2 weeks following conversations | Handoff and error rates within what was agreed with the restaurant |
 
-**Ponto de decisão após o piloto:** reservas de mesa (solicitação simples vs. com capacidade).
-O motor já comporta um fluxo `reservation` no pack de restaurante.
+**Decision point after the pilot:** table reservations (simple request vs. with capacity). The
+engine already supports a `reservation` flow in the restaurant pack.
 
-## Fase 2 — produto para o primeiro segmento
+## Phase 2 — product for the first segment
 
-- Reservas (conforme decisão acima).
-- Pagamento: Pix gerado pelo bot e link de pagamento (PSP via webhook de confirmação).
-- Áudio: transcrição de mensagens de voz (muito comum no Brasil).
-- Painel de conversas (histórico, assumir/devolver) e editor da base de conhecimento/cardápio.
-- RAG com pgvector para tenants com conhecimento textual grande.
-- Campanhas com opt-in (templates de marketing) e métricas para o restaurante.
-- Integrações com PDV/iFood se o cliente pedir.
+- Reservations (per the decision above).
+- Payment: Pix generated by the bot and payment link (PSP with a confirmation webhook).
+- Audio: transcription of voice messages (very common in Brazil).
+- Conversations panel (history, take over/hand back) and knowledge base/menu editor.
+- RAG with pgvector for tenants with large textual knowledge.
+- Opt-in campaigns (marketing templates) and metrics for the restaurant.
+- POS/iFood integrations if the client asks.
 
-## Fase 3 — multi-segmento e escala comercial
+## Phase 3 — multi-segment and commercial scale
 
-- Segundo Segment Pack (ex.: `segment-scheduling` para clínicas/salões: agendamento).
-- Onboarding self-service via Embedded Signup; cadastro de tenant pelo painel.
-- Billing da plataforma (plano + repasse de custo de mensagens e LLM).
-- Avaliar extração de serviços ou broker (RabbitMQ/SQS) se métricas justificarem.
+- Second Segment Pack (e.g. `segment-scheduling` for clinics/salons: appointments).
+- Self-service onboarding through Embedded Signup; tenant sign-up from the panel.
+- Platform billing (plan + pass-through of message and LLM costs).
+- Consider extracting services or a broker (RabbitMQ/SQS) if metrics justify it.

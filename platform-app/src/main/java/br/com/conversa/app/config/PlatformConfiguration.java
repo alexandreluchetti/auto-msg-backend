@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Composição dos módulos: adaptadores e segment packs não se conhecem; são ligados aqui.
+ * Module wiring: adapters and segment packs do not know each other; they are connected here.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({WhatsAppProperties.class, AnthropicProperties.class})

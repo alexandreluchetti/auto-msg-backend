@@ -12,7 +12,7 @@
 
     <artifactId>channel-whatsapp</artifactId>
     <name>Conversa :: Channel WhatsApp</name>
-    <description>Adaptador da WhatsApp Business Platform (Cloud API).</description>
+    <description>WhatsApp Business Platform (Cloud API) adapter.</description>
 
     <dependencies>
         <dependency>

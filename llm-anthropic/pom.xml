@@ -12,7 +12,7 @@
 
     <artifactId>llm-anthropic</artifactId>
     <name>Conversa :: LLM Anthropic</name>
-    <description>Implementação da porta LlmClient com a API do Claude. O SDK com.anthropic:anthropic-java entra no M5.</description>
+    <description>LlmClient port implementation with the Claude API. The com.anthropic:anthropic-java SDK arrives in M5.</description>
 
     <dependencies>
         <dependency>

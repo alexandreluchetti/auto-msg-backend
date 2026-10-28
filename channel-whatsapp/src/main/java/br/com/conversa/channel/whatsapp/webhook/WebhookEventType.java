@@ -1,12 +1,12 @@
 package br.com.conversa.channel.whatsapp.webhook;
 
 public enum WebhookEventType {
-    /** Mensagem enviada pelo cliente. */
+    /** Message sent by the customer. */
     MESSAGE,
-    /** Status de uma mensagem enviada por nós (sent, delivered, read, failed). */
+    /** Status of a message we sent (sent, delivered, read, failed). */
     STATUS,
-    /** Mensagem enviada pela equipe pelo app WhatsApp Business (coexistência). */
+    /** Message sent by staff from the WhatsApp Business app (coexistence). */
     ECHO,
-    /** Demais campos (account_update, history, smb_app_state_sync...), guardados para auditoria. */
+    /** Other fields (account_update, history, smb_app_state_sync...), kept for auditing. */
     OTHER
 }

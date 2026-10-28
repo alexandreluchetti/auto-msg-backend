@@ -17,7 +17,7 @@ class WhatsAppConfiguration {
     @Bean
     WebhookSignatureVerifier webhookSignatureVerifier(WhatsAppProperties properties) {
         if (properties.appSecret() == null || properties.appSecret().isBlank()) {
-            log.warn("conversa.whatsapp.app-secret não configurado: todo POST no webhook será recusado");
+            log.warn("conversa.whatsapp.app-secret not set: every webhook POST will be refused");
         }
         return new WebhookSignatureVerifier(properties.appSecret());
     }

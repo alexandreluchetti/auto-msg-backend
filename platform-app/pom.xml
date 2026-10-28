@@ -12,7 +12,7 @@
 
     <artifactId>platform-app</artifactId>
     <name>Conversa :: Platform App</name>
-    <description>Aplicação Spring Boot: composição, persistência, filas, workers e painel.</description>
+    <description>Spring Boot application: wiring, persistence, queues, workers and panel API.</description>
 
     <dependencies>
         <dependency>

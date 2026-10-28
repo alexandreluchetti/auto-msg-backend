@@ -1,0 +1,37 @@
+# After every merge into main, brings main back into dev through a pull request (dev is
+# protected and only accepts pull requests), so dev always starts from production.
+name: Sync dev with main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-dev-with-main
+
+jobs:
+  sync-dev:
+    name: sync-dev-with-main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge main into dev
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ahead=$(gh api "repos/$GH_REPO/compare/dev...main" --jq .ahead_by)
+          if [ "$ahead" = "0" ]; then
+            echo "dev already contains main"
+            exit 0
+          fi
+          url=$(gh pr list --base dev --head main --state open --json url --jq '.[0].url // empty')
+          if [ -z "$url" ]; then
+            url=$(gh pr create --base dev --head main --title "Sync dev with main" \
+              --body "Automatic sync after a merge into main (.github/workflows/sync-dev-with-main.yml).")
+          fi
+          gh pr merge "$url" --merge
+          echo "Synced: $url"

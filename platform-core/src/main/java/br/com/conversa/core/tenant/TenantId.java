@@ -4,7 +4,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Identificador de uma empresa (tenant). Todo dado de negócio pertence a exatamente um tenant.
+ * Identifier of a business (tenant). All business data belongs to exactly one tenant.
  */
 public record TenantId(UUID value) {
 

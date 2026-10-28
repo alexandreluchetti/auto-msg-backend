@@ -1,94 +1,111 @@
-# Conversa
+# auto-msg-backend
 
-> Nome provisório do projeto: **auto-msg** (codinome do código: Conversa). Plataforma multi-tenant de atendimento automatizado no WhatsApp para
-> empresas — restaurantes, clínicas, salões, lojas — implantada principalmente por
-> configuração, não por código novo.
+> Provisional project name: **auto-msg** (code name: Conversa). Multi-tenant platform that
+> automates WhatsApp customer service for businesses — restaurants, clinics, salons, shops —
+> deployed mostly through configuration, not new code.
 
-## Visão do produto
+## Product vision
 
-- **Canal oficial:** WhatsApp Business Platform (Cloud API da Meta), com coexistência — a
-  empresa mantém o número e o app WhatsApp Business.
-- **Motor híbrido:** fluxos determinísticos para o que precisa ser exato (checkout, confirmação)
-  + LLM (Claude) com *tool calling* para entender linguagem livre e responder com base nos
-  dados da empresa — sem inventar preço, horário ou taxa.
-- **Segmentos como pacotes:** cada segmento (ex.: restaurante) traz ferramentas, fluxos,
-  prompts e schema de configuração; cada empresa customiza tom de voz, horários, catálogo e
-  regras.
-- **Transbordo para humano** a qualquer momento, com o bot pausando naquela conversa.
-- **Isolamento de dados por empresa**, LGPD, custo de mensagens e de LLM por empresa.
+- **Official channel:** WhatsApp Business Platform (Meta Cloud API) with coexistence — the
+  business keeps its number and the WhatsApp Business app.
+- **Hybrid engine:** deterministic flows for what must be exact (checkout, confirmation) plus
+  an LLM (Claude) with tool calling to understand free text and answer from the business's
+  data — never inventing prices, opening hours or fees.
+- **Segments as packs:** each segment (e.g. restaurant) brings tools, flows, prompts and a
+  configuration schema; each business customizes tone of voice, opening hours, catalog and
+  rules.
+- **Human handoff** at any time, with the bot pausing in that conversation.
+- **Data isolation per business**, LGPD compliance, message and LLM cost tracked per business.
 
-**Primeiro cliente:** restaurante em Bonfim Paulista-SP — dúvidas (horário, endereço, cardápio,
-preços, pagamento, entrega), pedidos de delivery/retirada de ponta a ponta e transbordo.
+**First client:** a restaurant in Bonfim Paulista-SP (Brazil) — questions (opening hours,
+address, menu, prices, payment, delivery), end-to-end delivery/pickup orders and handoff.
 
-## Documentação
+Business decisions are recorded in the [decision log](docs/decisions.md); architecture
+decisions in [ADRs](docs/adr/README.md). Branches, pull requests and releases follow
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
-| Documento | Conteúdo |
+## Documentation
+
+| Document | Content |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Componentes, fluxo da mensagem, modelo de dados, multi-tenancy |
-| [docs/adr/](docs/adr/README.md) | Decisões de arquitetura e trade-offs |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | MVP em marcos testáveis e fases seguintes |
-| [CLAUDE.md](CLAUDE.md) | Convenções e regras para sessões de desenvolvimento com IA |
+| [docs/decisions.md](docs/decisions.md) | Approved business decisions, technical defaults, proposals |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components, message flow, data model, multi-tenancy |
+| [docs/adr/](docs/adr/README.md) | Architecture decisions and trade-offs |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | MVP in testable milestones and later phases |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branches, pull requests, releases |
+| [CLAUDE.md](CLAUDE.md) | Rules for AI-assisted development sessions |
 
-## Repositórios
+## Repositories
 
-O projeto (nome provisório **auto-msg**) é dividido em dois repositórios dentro de `auto-msg/`:
+The project is split into two repositories inside `auto-msg/`:
 
-| Repositório | Conteúdo |
+| Repository | Content |
 |---|---|
-| `auto-msg-backend` (este) | Plataforma, integrações WhatsApp e LLM, API REST/SSE |
-| `auto-msg-frontend` | Painel web da equipe — criado no M8 (ver [ADR-009](docs/adr/ADR-009-frontend-repositorio-separado.md)) |
+| `auto-msg-backend` (this one) | Platform, WhatsApp and LLM integrations, REST/SSE API |
+| `auto-msg-frontend` | Staff web panel — created in M8 (see [ADR-009](docs/adr/ADR-009-separate-frontend-repository.md)) |
 
 ## Stack
 
-Java 21 · Spring Boot 4.1 · Maven multi-módulo · PostgreSQL 17 + pgvector · Flyway ·
+Java 21 · Spring Boot 4.1 · Maven multi-module · PostgreSQL 17 + pgvector · Flyway ·
 Testcontainers · ArchUnit · Docker Compose.
 
 ```text
-platform-core/        kernel do domínio e SPIs (Java puro)
-channel-whatsapp/     adaptador WhatsApp Cloud API
-llm-anthropic/        adaptador Claude para a porta LlmClient
-segment-restaurant/   Segment Pack de restaurante
-platform-app/         aplicação Spring Boot (composição, persistência, filas, API do painel)
+platform-core/        domain kernel and SPIs (plain Java)
+channel-whatsapp/     WhatsApp Cloud API adapter
+llm-anthropic/        Claude adapter for the LlmClient port
+segment-restaurant/   restaurant Segment Pack
+platform-app/         Spring Boot application (wiring, persistence, queues, panel API)
 ```
 
-## Como rodar localmente
+## Local development
 
-Pré-requisitos: JDK 21 e Docker. O Maven vem pelo wrapper (`mvnw`).
+Requirements: JDK 21 and Docker. Maven comes with the wrapper (`mvnw`).
 
-1. Suba o Postgres:
+1. Start PostgreSQL:
 
    ```bash
    docker compose up -d postgres
    ```
 
-2. (Opcional) Copie `.env.example` para `.env` e preencha os segredos. Para o esqueleto atual
-   nada é obrigatório além do banco.
+2. (Optional) Copy `.env.example` to `.env` and fill in the secrets. Only the database is
+   required today.
 
-3. Rode a aplicação:
+3. Run the application:
 
    ```bash
    ./mvnw -pl platform-app -am spring-boot:run
    ```
 
-4. Verifique:
+4. Check it:
 
    ```bash
    curl http://localhost:8081/actuator/health
    ```
 
-   Resposta esperada: `{"status":"UP"}`.
+   Expected answer: `{"status":"UP"}`.
 
-**Sem docker-compose:** rode a classe de teste `TestConversaApplication` pelo IDE — ela sobe
-um Postgres em Testcontainers automaticamente.
+**Without docker-compose:** run the test class `TestConversaApplication` from the IDE — it
+starts PostgreSQL with Testcontainers.
 
-**App em container:** `docker compose --profile app up --build`.
+**App in a container:** `docker compose --profile app up --build`.
 
-## Testes
+| Variable | Description | Default |
+|---|---|---|
+| `DB_URL` / `DB_USER` / `DB_PASSWORD` | PostgreSQL connection | local docker-compose (`localhost:5433`) |
+| `SERVER_PORT` | HTTP port | `8081` |
+| `POSTGRES_PORT` | Host port of the compose PostgreSQL | `5433` |
+| `WHATSAPP_VERIFY_TOKEN` | Token Meta sends when verifying the webhook URL | empty (verification refused) |
+| `WHATSAPP_APP_SECRET` | Meta app secret, validates `X-Hub-Signature-256` | empty (every webhook POST refused) |
+| `WHATSAPP_GRAPH_API_VERSION` | Graph API version | `v24.0` |
+| `ANTHROPIC_API_KEY` | Claude API key (from M5) | — |
+| `ANTHROPIC_DEFAULT_MODEL` | Default Claude model | `claude-opus-5-5` |
+
+## Tests
 
 ```bash
 ./mvnw verify
 ```
 
-- `*Test` — testes unitários (Surefire), não precisam de Docker.
-- `*IT` — testes de integração com Testcontainers (Failsafe); são pulados se o Docker não
-  estiver disponível.
+- `*Test` — unit tests (Surefire), no Docker needed.
+- `*IT` — integration tests with Testcontainers (Failsafe); skipped when Docker is not
+  available.

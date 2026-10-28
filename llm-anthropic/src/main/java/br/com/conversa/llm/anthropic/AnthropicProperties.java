@@ -3,10 +3,10 @@ package br.com.conversa.llm.anthropic;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Configuração do adaptador Claude. O modelo pode ser sobrescrito por tenant. Ver ADR-005.
+ * Configuration of the Claude adapter. The model may be overridden per tenant. See ADR-005.
  *
- * @param apiKey       chave da API (variável de ambiente, nunca versionada)
- * @param defaultModel modelo padrão quando o tenant não define um
+ * @param apiKey       API key (environment variable, never versioned)
+ * @param defaultModel default model when the tenant does not set one
  */
 @ConfigurationProperties("conversa.llm.anthropic")
 public record AnthropicProperties(String apiKey, String defaultModel) {

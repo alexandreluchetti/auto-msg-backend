@@ -1,7 +1,7 @@
 package br.com.conversa.core.tool;
 
 /**
- * Resultado devolvido ao LLM. {@code error = true} informa falha sem interromper o turno.
+ * Result returned to the LLM. {@code error = true} reports a failure without aborting the turn.
  */
 public record ToolResult(String contentJson, boolean error) {
 

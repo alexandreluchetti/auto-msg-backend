@@ -1,42 +1,43 @@
-# Arquitetura — Conversa
+# Architecture — Conversa
 
-> Nome provisório do projeto: **auto-msg** (codinome no código: Conversa, pacote `br.com.conversa`).
-> Documento vivo: decisões com trade-offs ficam em [`docs/adr/`](adr/); este arquivo descreve o *como*.
+> Provisional project name: **auto-msg** (code name: Conversa, package `br.com.conversa`).
+> Living document: decisions with trade-offs live in [`docs/adr/`](adr/), business rules in the
+> [decision log](decisions.md); this file describes the *how*.
 
-## 1. Visão geral
+## 1. Overview
 
-Plataforma multi-tenant de atendimento automatizado no WhatsApp (Cloud API oficial da Meta),
-com motor de conversa híbrido (fluxos determinísticos + LLM com tool calling), transbordo
-para humano e base de conhecimento por empresa.
+Multi-tenant platform that automates WhatsApp customer service (Meta's official Cloud API),
+with a hybrid conversation engine (deterministic flows + LLM with tool calling), human handoff
+and a knowledge base per business.
 
-Princípios:
+Principles:
 
-1. **Núcleo genérico, segmento como pacote.** Nada de `if (restaurante)` no núcleo. Tudo que é
-   específico de segmento vive em um *Segment Pack* (ferramentas, fluxos, prompts, schema de
-   configuração). Cada empresa (tenant) escolhe um pack e o customiza por configuração.
-2. **O LLM conversa; o código decide.** O LLM entende linguagem livre e escolhe ferramentas.
-   Dados de negócio (preço, horário, taxa) só vêm de ferramentas. Ações irreversíveis
-   (confirmar pedido) só acontecem por um passo determinístico com botão de confirmação.
-3. **Webhook rápido, processamento assíncrono, idempotente.** O webhook só valida, grava e
-   responde 200. Todo o resto roda em workers a partir de filas no PostgreSQL.
-4. **Isolamento de dados por tenant desde o dia 1** (`tenant_id` + Row-Level Security).
-5. **Monólito modular.** Um deployable, módulos Maven com fronteiras verificadas por ArchUnit.
-   Extrair serviços só quando houver motivo medido.
+1. **Generic core, segment as a pack.** No `if (restaurant)` in the core. Everything
+   segment-specific lives in a *Segment Pack* (tools, flows, prompts, configuration schema).
+   Each business (tenant) picks a pack and customizes it through configuration.
+2. **The LLM talks; the code decides.** The LLM understands free text and picks tools. Business
+   data (price, opening hours, fee) only comes from tools. Irreversible actions (confirming an
+   order) only happen through a deterministic step with a confirmation button.
+3. **Fast webhook, asynchronous and idempotent processing.** The webhook only validates, stores
+   and answers 200. Everything else runs in workers from queues in PostgreSQL.
+4. **Data isolation per tenant from day one** (`tenant_id` + Row-Level Security).
+5. **Modular monolith.** One deployable, Maven modules with boundaries checked by ArchUnit.
+   Extract services only when there is a measured reason.
 
-## 2. Contexto e restrições que moldam o design
+## 2. Context and constraints that shape the design
 
-Verificado na documentação da Meta em 28/10/2026 (ver [ADR-001](adr/ADR-001-integracao-whatsapp.md)):
+Checked in Meta's documentation on 2026-10-28 (see [ADR-001](adr/ADR-001-whatsapp-integration.md)):
 
-| Fato | Impacto no design |
+| Fact | Impact on the design |
 |---|---|
-| Desde 15/01/2026 os termos proíbem **assistentes de IA de propósito geral** na plataforma; IA para atendimento do próprio negócio é permitida. | O bot é restrito ao escopo da empresa: prompt com *scope guard*, recusa educada de assuntos fora do negócio, nada de "pergunte qualquer coisa". |
-| Cobrança **por mensagem entregue** (desde 07/2025). Em **01/10/2026** mensagens de serviço (texto livre na janela de 24h) passaram a ser cobradas acima de **1.000/mês por número**, e templates *utility* dentro da janela deixaram de ser grátis. | Cada resposta do bot custa. Consolidar respostas em uma mensagem, evitar "bolhas" múltiplas, registrar o `pricing` dos webhooks de status por tenant. Estimativa a 50 pedidos/dia: ~10–15 mil mensagens/mês → acima da franquia. Conferir tarifa BRL no rate card antes de precificar o produto. |
-| **Coexistência** (mesmo número no app WhatsApp Business + Cloud API): eco das mensagens enviadas pelo app via webhook `smb_message_echoes`; vazão fixa de 20 msg/s; exige Embedded Signup e que sejamos **Tech Provider/Solution Partner** (ou usar um BSP que suporte). | Transbordo usa o app do restaurante (decisão do cliente). Ecos pausam o bot. Onboarding da Meta é caminho crítico. |
-| Na coexistência: **sem grupos**, sem listas de transmissão novas, sem catálogo/mensagens de ausência/respostas rápidas do app; **WhatsApp para Windows não é companion suportado** (mensagens enviadas por ele não geram eco). | Equipe não pode ser notificada em grupo → notificação por painel + mensagem individual a números da equipe (template utility, pago). Restaurante não pode atender pelo WhatsApp Windows (bot não veria o humano). |
-| Mensagens enviadas pelo app **não abrem nem estendem** a janela de 24h da API. | A janela é calculada só a partir de mensagens do cliente. |
-| Fora da janela de 24h só é possível enviar **templates aprovados**. | Notificações tardias (ex.: "pedido saiu") usam template utility se a janela fechou. |
+| Since 2026-01-15 the terms ban **general-purpose AI assistants** on the platform; AI for the business's own customer service is allowed. | The bot is restricted to the business's scope: prompt with a scope guard, polite refusal of off-topic subjects, no "ask me anything". |
+| Pricing **per delivered message** (since 2025-07). On **2026-10-01** service messages (free text inside the 24h window) became charged above **1,000/month per number**, and utility templates inside the window are no longer free. | Every bot answer costs money. Consolidate answers into one message, avoid multiple "bubbles", record the `pricing` of status webhooks per tenant. Estimate at 50 orders/day: ~10–15 thousand messages/month → above the free tier. Check the BRL rate card before pricing the product. |
+| **Coexistence** (same number in the WhatsApp Business app + Cloud API): echoes of messages sent from the app through the `smb_message_echoes` webhook; fixed throughput of 20 msg/s; requires Embedded Signup and that we are a **Tech Provider/Solution Partner** (or a BSP that supports it). | Handoff uses the restaurant's app (client decision). Echoes pause the bot. Meta onboarding is on the critical path. |
+| With coexistence: **no groups**, no new broadcast lists, no catalog/away messages/quick replies in the app; **WhatsApp for Windows is not a supported companion** (messages sent from it produce no echo). | Staff cannot be notified in a group → notification through the panel + individual messages to staff numbers (utility template, paid). The restaurant cannot answer from WhatsApp for Windows (the bot would not see the human). |
+| Messages sent from the app **neither open nor extend** the API's 24h window. | The window is computed only from customer messages. |
+| Outside the 24h window only **approved templates** can be sent. | Late notifications (e.g. "order is out for delivery") use a utility template if the window closed. |
 
-## 3. Componentes
+## 3. Components
 
 ```mermaid
 flowchart LR
@@ -44,18 +45,18 @@ flowchart LR
         WA[(Cloud API)]
     end
     subgraph App["platform-app (Spring Boot, 1 deployable)"]
-        WH[Webhook Controller<br/>verificação HMAC]
-        IQ[(inbound_event<br/>fila em Postgres)]
-        WK[Inbound Worker<br/>ordenado por conversa]
+        WH[Webhook Controller<br/>HMAC verification]
+        IQ[(inbound_event<br/>queue in Postgres)]
+        WK[Inbound Worker<br/>ordered per conversation]
         CE[Conversation Engine<br/>guards · flows · LLM loop]
         TR[Tool Registry]
         SP[Segment Packs<br/>restaurant, ...]
         KB[Knowledge &amp; Catalog]
         HO[Handoff Manager]
         OB[(outbound_message<br/>outbox)]
-        SN[Sender Worker<br/>janela 24h · templates · retry]
-        API[API REST + SSE<br/>para o painel]
-        LG[LGPD / Retenção]
+        SN[Sender Worker<br/>24h window · templates · retry]
+        API[REST API + SSE<br/>for the panel]
+        LG[LGPD / Retention]
         US[Usage &amp; Cost]
     end
     LLM[(Claude API)]
@@ -68,30 +69,30 @@ flowchart LR
     CE -- LlmClient --> LLM
     CE --> OB --> SN -- Graph API --> WA
     API --> PG
-    FE[auto-msg-frontend<br/>painel de pedidos] -- HTTPS --> API
+    FE[auto-msg-frontend<br/>orders panel] -- HTTPS --> API
     CE --> US
     IQ & OB & KB --- PG
 ```
 
-### Módulos Maven
+### Maven modules
 
-| Módulo | Responsabilidade | Pode depender de |
+| Module | Responsibility | May depend on |
 |---|---|---|
-| `platform-core` | Kernel do domínio: tipos de tenant/conversa, **SPIs** (`SegmentPack`, `Tool`, `LlmClient`, `ChannelGateway`). Sem Spring Web, sem JPA. | JDK |
-| `channel-whatsapp` | Adaptador Cloud API: verificação de webhook, assinatura `X-Hub-Signature-256`, parsing de payload, envio (texto, interativo, template, mídia), status. | `platform-core` |
-| `llm-anthropic` | Implementação de `LlmClient` com o SDK oficial `com.anthropic:anthropic-java`. | `platform-core` |
-| `segment-restaurant` | Segment Pack de restaurante: ferramentas (cardápio, taxa de entrega, carrinho), fluxos (checkout), prompts, schema de configuração. | `platform-core` |
-| `platform-app` | Spring Boot: composição, persistência (JPA + Flyway), filas, workers, API REST/SSE do painel, segurança, observabilidade. | todos |
+| `platform-core` | Domain kernel: tenant/conversation types, **SPIs** (`SegmentPack`, `Tool`, `LlmClient`, `ChannelGateway`). No Spring Web, no JPA. | JDK |
+| `channel-whatsapp` | Cloud API adapter: webhook verification, `X-Hub-Signature-256` signature, payload parsing, sending (text, interactive, template, media), statuses. | `platform-core` |
+| `llm-anthropic` | `LlmClient` implementation with the official SDK `com.anthropic:anthropic-java`. | `platform-core` |
+| `segment-restaurant` | Restaurant Segment Pack: tools (menu, delivery fee, cart), flows (checkout), prompts, configuration schema. | `platform-core` |
+| `platform-app` | Spring Boot: wiring, persistence (JPA + Flyway), queues, workers, panel REST/SSE API, security, observability. | all |
 
-Regra: **segmentos e adaptadores nunca dependem uns dos outros** — só do `platform-core`.
-`ArchitectureTest` (ArchUnit) quebra o build se isso for violado.
+Rule: **segments and adapters never depend on each other** — only on `platform-core`.
+`ArchitectureTest` (ArchUnit) breaks the build if this is violated.
 
-## 4. Fluxo de uma mensagem (webhook → resposta)
+## 4. Flow of a message (webhook → answer)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant C as Cliente (WhatsApp)
+    participant C as Customer (WhatsApp)
     participant M as Meta Cloud API
     participant W as WebhookController
     participant Q as inbound_event (PG)
@@ -104,127 +105,127 @@ sequenceDiagram
 
     C->>M: "tem pizza de calabresa? quanto custa?"
     M->>W: POST /webhooks/whatsapp (payload + X-Hub-Signature-256)
-    W->>W: valida HMAC-SHA256 (app secret) sobre o corpo cru
+    W->>W: validate HMAC-SHA256 (app secret) over the raw body
     W->>Q: INSERT ... ON CONFLICT (event_key) DO NOTHING
     W-->>M: 200 OK (< 100 ms)
     K->>Q: SELECT ... FOR UPDATE SKIP LOCKED
-    K->>K: resolve tenant por phone_number_id; lock por conversa (advisory lock)
-    K->>E: InboundMessage normalizada (tenant, contato, conversa)
-    E->>E: guards: LGPD/opt-out · consentimento · estado HUMAN? · horário
-    alt fluxo determinístico aguardando (ex.: botão "Confirmar pedido")
-        E->>E: FlowRuntime avança estado
-    else linguagem livre
-        E->>L: system (pack + tenant) + histórico + tools
+    K->>K: resolve tenant by phone_number_id; per-conversation lock (advisory lock)
+    K->>E: normalized InboundMessage (tenant, contact, conversation)
+    E->>E: guards: LGPD/opt-out · consent · HUMAN state? · opening hours
+    alt deterministic flow waiting (e.g. "Confirm order" button)
+        E->>E: FlowRuntime advances the state
+    else free text
+        E->>L: system (pack + tenant) + history + tools
         L-->>E: tool_use search_menu("calabresa")
-        E->>T: search_menu (consulta catálogo do tenant)
-        T-->>E: itens + preços
+        E->>T: search_menu (queries the tenant's catalog)
+        T-->>E: items + prices
         E->>L: tool_result
-        L-->>E: texto final
+        L-->>E: final text
     end
-    E->>O: INSERT resposta (idempotency key = inbound wamid + seq)
-    E->>Q: marca evento como PROCESSED (mesma transação)
-    S->>O: claim pendentes
-    S->>S: janela 24h aberta? senão exige template
+    E->>O: INSERT answer (idempotency key = inbound wamid + seq)
+    E->>Q: mark event as PROCESSED (same transaction)
+    S->>O: claim pending
+    S->>S: 24h window open? otherwise a template is required
     S->>M: POST /{phone_number_id}/messages
     M-->>S: wamid
-    M->>W: webhook status (sent/delivered/read + pricing)
-    W->>Q: status → atualiza message + custo do tenant
+    M->>W: status webhook (sent/delivered/read + pricing)
+    W->>Q: status → updates message + tenant cost
 ```
 
-Pontos importantes:
+Key points:
 
-- **Webhook implementado (M1):** `GET|POST /webhooks/whatsapp`. Cada notificação é dividida
-  em eventos atômicos com chave `msg:<wamid>`, `status:<wamid>:<status>`, `echo:<wamid>` ou
-  `<field>:<sha256 do change>` (demais campos). Assinatura inválida → 401; payload assinado mas
-  inválido → 400; caso contrário 200, inclusive para duplicatas. `tenant_id` fica nulo até a
-  resolução por `phone_number_id` (M3).
-- **Idempotência em 3 níveis:** `inbound_event.event_key` único (wamid da mensagem ou
-  `wamid:status`), `outbound_message.idempotency_key` único, e efeitos de negócio (ex.: criar
-  pedido) com chave natural (`order.confirmation_wamid`).
-- **Ordenação:** mensagens da mesma conversa são processadas em série (advisory lock por
-  `(tenant_id, wa_id)`); conversas diferentes em paralelo (virtual threads).
-- **Debounce:** cliente que manda 3 mensagens seguidas ("oi" / "quero pizza" / "calabresa")
-  — o worker aguarda ~2 s de silêncio e processa o lote junto, economizando chamadas ao LLM
-  e mensagens pagas.
-- **Falhas:** retry com backoff exponencial; após N tentativas o evento vai para `FAILED`
-  (dead letter) e a conversa é marcada para humano.
+- **Webhook implemented (M1):** `GET|POST /webhooks/whatsapp`. Each notification is split into
+  atomic events keyed `msg:<wamid>`, `status:<wamid>:<status>`, `echo:<wamid>` or
+  `<field>:<sha256 of the change>` (other fields). Invalid signature → 401; signed but invalid
+  payload → 400; otherwise 200, duplicates included. `tenant_id` stays null until it is
+  resolved by `phone_number_id` (M3).
+- **Idempotency at 3 levels:** unique `inbound_event.event_key` (message wamid or
+  `wamid:status`), unique `outbound_message.idempotency_key`, and business effects (e.g.
+  creating an order) with a natural key (`order.confirmation_wamid`).
+- **Ordering:** messages of the same conversation are processed serially (advisory lock on
+  `(tenant_id, wa_id)`); different conversations in parallel (virtual threads).
+- **Debounce:** a customer who sends 3 messages in a row ("oi" / "quero pizza" / "calabresa")
+  — the worker waits for ~2 s of silence and processes the batch together, saving LLM calls and
+  paid messages.
+- **Failures:** retry with exponential backoff; after N attempts the event goes to `FAILED`
+  (dead letter) and the conversation is flagged for a human.
 
-## 5. Motor de conversa
+## 5. Conversation engine
 
-Detalhes e trade-offs em [ADR-002](adr/ADR-002-motor-de-conversa.md). Pipeline por turno:
+Details and trade-offs in [ADR-002](adr/ADR-002-conversation-engine.md). Pipeline per turn:
 
-1. **Normalização** — texto, resposta de botão/lista (`interactive.button_reply.id`),
-   localização, mídia, áudio (MVP: pede para escrever; transcrição na fase 2).
-2. **Guards determinísticos** (sempre antes do LLM):
-   comandos LGPD ("apagar meus dados"), opt-out, aviso de privacidade no 1º contato,
-   conversa em `HUMAN` (só registra), fora do horário (resposta configurável).
-3. **Flow runtime** — fluxos declarativos (YAML no pack, sobrescritos por tenant): máquinas de
-   estado com *slots* (ex.: checkout: tipo de entrega → endereço → pagamento → troco →
-   confirmação). Entrada estruturada (id de botão) avança o fluxo direto, sem LLM.
-   Texto livre dentro de um fluxo vai ao LLM com uma ferramenta de *slot filling*.
-4. **LLM turn** — prompt = pacote do segmento + configuração do tenant (tom, nome do
-   atendente virtual, regras) + estado da conversa (carrinho). O LLM só pode afirmar fatos
-   que vieram de ferramentas. Limite de iterações de ferramenta por turno.
-5. **Renderização** — o código monta mensagens interativas (botões/listas) a partir dos
-   resultados das ferramentas; o LLM escreve o texto.
+1. **Normalization** — text, button/list reply (`interactive.button_reply.id`), location,
+   media, audio (MVP: asks the customer to type; transcription in phase 2).
+2. **Deterministic guards** (always before the LLM): LGPD commands ("apagar meus dados"),
+   opt-out, privacy notice on first contact, conversation in `HUMAN` (only records), outside
+   opening hours (configurable answer).
+3. **Flow runtime** — declarative flows (YAML in the pack, overridden per tenant): state
+   machines with slots (e.g. checkout: fulfillment type → address → payment → change →
+   confirmation). Structured input (button id) moves the flow forward directly, without the
+   LLM. Free text inside a flow goes to the LLM with a slot-filling tool.
+4. **LLM turn** — prompt = segment pack + tenant configuration (tone, virtual attendant name,
+   rules) + conversation state (cart). The LLM may only state facts that came from tools.
+   Limit of tool iterations per turn.
+5. **Rendering** — code builds interactive messages (buttons/lists) from tool results; the LLM
+   writes the text.
 
-Estados da conversa: `BOT` → `HUMAN` (pausado até `paused_until`) → `BOT`; `CLOSED` após
-inatividade.
+Conversation states: `BOT` → `HUMAN` (paused until `paused_until`) → `BOT`; `CLOSED` after
+inactivity.
 
-## 6. Transbordo para humano (coexistência)
+## 6. Human handoff (coexistence)
 
-Ver [ADR-008](adr/ADR-008-transbordo-humano.md).
+See [ADR-008](adr/ADR-008-human-handoff.md).
 
-- **Gatilhos:** cliente pede ("falar com atendente"), ferramenta `request_human` chamada pelo
-  LLM, N falhas de entendimento seguidas, erro técnico, ou **eco de mensagem enviada pelo app**
-  (`smb_message_echoes`) — o humano começou a responder, o bot sai da frente.
-- **Pausa:** `paused_until = now + handoff.pause_minutes` (padrão 60), renovado a cada eco.
-- **Retorno ao bot:** expiração da pausa ou botão "devolver ao bot" no painel.
-- **Aviso à equipe:** card no painel + mensagem para os números da equipe configurados.
+- **Triggers:** the customer asks ("falar com atendente"), the `request_human` tool called by
+  the LLM, N misunderstandings in a row, a technical error, or an **echo of a message sent from
+  the app** (`smb_message_echoes`) — the human started answering, the bot steps aside.
+- **Pause:** `paused_until = now + handoff.pause_minutes` (default 60), renewed on every echo.
+- **Back to the bot:** the pause expires, or the "hand back to bot" button in the panel.
+- **Staff alert:** a card in the panel + a message to the configured staff numbers.
 
-## 7. Modelo multi-tenant e segmentos
+## 7. Multi-tenant model and segments
 
-Ver [ADR-003](adr/ADR-003-multi-tenancy.md).
+See [ADR-003](adr/ADR-003-multi-tenancy.md).
 
 ```text
-Plataforma (defaults)
+Platform (defaults)
   └── Segment Pack "restaurant" v1   (tools, flows, prompts, config schema, defaults)
-        └── Tenant "Restaurante X"   (overrides validados contra o schema do pack)
+        └── Tenant "Restaurante X"   (overrides validated against the pack's schema)
 ```
 
-- **Segment Pack** = bean Spring que implementa `SegmentPack` (SPI em `platform-core`):
-  `id`, `version`, `tools()`, recursos em `classpath:segments/<id>/` (`flows/*.yaml`,
+- **Segment Pack** = Spring bean implementing `SegmentPack` (SPI in `platform-core`): `id`,
+  `version`, `tools()`, resources in `classpath:segments/<id>/` (`flows/*.yaml`,
   `prompts/*.md`, `config-schema.json`, `defaults.yaml`).
-- **Tenant** escolhe `segment_id` + `segment_version` e guarda `config` (JSONB) validado pelo
-  schema: tom de voz, nome do assistente, ferramentas habilitadas, regras (pedido mínimo,
-  formas de pagamento, bairros e taxas), textos de fluxo, números da equipe, retenção.
-- **Precedência:** plataforma < pack < tenant.
-- **Dados genéricos no núcleo** (servem a vários segmentos): catálogo (itens, categorias,
-  opções, preços, `attributes jsonb`), horários, endereço/área de atendimento, FAQ/políticas,
-  contatos. **Dados específicos no pack:** pedido de delivery (restaurante), agendamento
-  (clínica/salão, futuro), reserva (futuro).
-- **Isolamento:** todas as tabelas de negócio têm `tenant_id` + **RLS** com
-  `current_setting('app.tenant_id')`, definido por `SET LOCAL` no início de cada transação.
-  A aplicação usa um role sem `BYPASSRLS`; migrações rodam com outro role.
-  Tabelas de fila (`inbound_event`, `outbound_message`) carregam `tenant_id` mas não têm RLS,
-  porque o claim é cross-tenant; o worker fixa o tenant antes de tocar dados de negócio.
+- **Tenant** picks `segment_id` + `segment_version` and stores `config` (JSONB) validated by
+  the schema: tone of voice, assistant name, enabled tools, rules (minimum order, payment
+  methods, neighborhoods and fees), flow texts, staff numbers, retention.
+- **Precedence:** platform < pack < tenant.
+- **Generic data in the core** (serves many segments): catalog (items, categories, options,
+  prices, `attributes jsonb`), opening hours, address/service area, FAQ/policies, contacts.
+  **Pack-specific data:** delivery order (restaurant), appointment (clinic/salon, future),
+  reservation (future).
+- **Isolation:** every business table has `tenant_id` + **RLS** with
+  `current_setting('app.tenant_id')`, set by `SET LOCAL` at the start of each transaction. The
+  application uses a role without `BYPASSRLS`; migrations run with another role. Queue tables
+  (`inbound_event`, `outbound_message`) carry `tenant_id` but have no RLS, because claiming is
+  cross-tenant; the worker sets the tenant before touching business data.
 
-## 8. Modelo de dados inicial
+## 8. Initial data model
 
 ```mermaid
 erDiagram
-    tenant ||--o{ tenant_channel : possui
-    tenant ||--o{ contact : atende
-    tenant ||--o{ catalog_item : vende
-    tenant ||--o{ kb_document : conhece
-    contact ||--o{ conversation : abre
-    conversation ||--o{ message : contem
-    conversation ||--o{ llm_call : consome
-    contact ||--o{ customer_order : faz
-    customer_order ||--o{ order_item : contem
-    catalog_category ||--o{ catalog_item : agrupa
-    catalog_item ||--o{ catalog_option : tem
-    kb_document ||--o{ kb_chunk : dividido
+    tenant ||--o{ tenant_channel : owns
+    tenant ||--o{ contact : serves
+    tenant ||--o{ catalog_item : sells
+    tenant ||--o{ kb_document : knows
+    contact ||--o{ conversation : opens
+    conversation ||--o{ message : contains
+    conversation ||--o{ llm_call : consumes
+    contact ||--o{ customer_order : places
+    customer_order ||--o{ order_item : contains
+    catalog_category ||--o{ catalog_item : groups
+    catalog_item ||--o{ catalog_option : has
+    kb_document ||--o{ kb_chunk : split_into
 
     tenant {
         uuid id PK
@@ -362,71 +363,72 @@ erDiagram
     }
 ```
 
-Também previstas: `business_hours`, `delivery_zone` (bairro → taxa), `staff_user`,
-`audit_log`, `data_subject_request`. Horários e zonas podem começar dentro de `tenant.config`
-e virar tabelas quando o painel passar a editá-los.
+Also planned: `business_hours`, `delivery_zone` (neighborhood → fee), `staff_user`,
+`audit_log`, `data_subject_request`. Opening hours and zones may start inside `tenant.config`
+and become tables when the panel starts editing them.
 
-## 9. Fila e assincronismo
+## 9. Queue and asynchronous processing
 
-PostgreSQL como fila (`FOR UPDATE SKIP LOCKED`), sem broker no MVP — ver
-[ADR-004](adr/ADR-004-fila-processamento-assincrono.md). Workers em virtual threads,
-polling curto + `LISTEN/NOTIFY` para latência baixa. Interface `JobQueue` permite trocar por
-RabbitMQ/SQS se o volume justificar.
+PostgreSQL as a queue (`FOR UPDATE SKIP LOCKED`), no broker in the MVP — see
+[ADR-004](adr/ADR-004-async-processing-queue.md). Workers on virtual threads, short polling +
+`LISTEN/NOTIFY` for low latency. A `JobQueue` interface allows swapping for RabbitMQ/SQS if
+volume justifies it.
 
 ## 10. LLM
 
-`LlmClient` (porta neutra em `platform-core`) + adaptador Anthropic — ver
-[ADR-005](adr/ADR-005-provedor-llm.md). Prompt caching com prefixo estável
-(tools → system do pack → config do tenant) e estado volátil no fim. Custo por chamada gravado
-em `llm_call` e agregado por tenant.
+`LlmClient` (neutral port in `platform-core`) + Anthropic adapter — see
+[ADR-005](adr/ADR-005-llm-provider.md). Prompt caching with a stable prefix (tools → pack
+system prompt → tenant config) and volatile state at the end. Cost per call stored in
+`llm_call` and aggregated per tenant.
 
-## 11. Base de conhecimento
+## 11. Knowledge base
 
-Ver [ADR-006](adr/ADR-006-base-de-conhecimento.md). Para restaurante, **dados estruturados via
-ferramentas** (cardápio, preços, taxas, horários) + **FAQ/políticas no prompt** (são pequenos e
-ficam no cache). RAG com pgvector só quando o conhecimento textual de um tenant passar de
-~20–30 mil tokens. A extensão `vector` já é criada na migração inicial.
+See [ADR-006](adr/ADR-006-knowledge-base.md). For a restaurant, **structured data through
+tools** (menu, prices, fees, opening hours) + **FAQ/policies in the prompt** (small, and they
+stay cached). RAG with pgvector only when a tenant's textual knowledge exceeds ~20–30 thousand
+tokens. The `vector` extension is already created in the initial migration.
 
-## 12. Painel (MVP)
+## 12. Panel (MVP)
 
-Decidido: **painel de pedidos** no MVP (lista em tempo real via SSE, alerta sonoro, mudança de
-status que notifica o cliente) + **mensagem para a equipe no WhatsApp**. Atendimento humano é
-feito **no app WhatsApp Business** (coexistência). Painel de conversas e editor de base de
-conhecimento ficam para a fase 2; até lá, conteúdo é carregado por seed/importação de planilha.
+Decided: an **orders panel** in the MVP (real-time list via SSE, sound alert, status changes
+that notify the customer) + **a WhatsApp message to staff**. Human service happens **in the
+WhatsApp Business app** (coexistence). A conversations panel and knowledge base editor are left
+for phase 2; until then, content is loaded by seed/spreadsheet import.
 
-Tecnologia: o painel é um **frontend separado, em repositório próprio** (`auto-msg-frontend`,
-criado no M8; stack a definir, sugestão React + Vite + TypeScript). Este repositório
-(`auto-msg-backend`) expõe para ele uma **API REST** (`/api/v1/...`) e um stream **SSE** de
-eventos de pedido, autenticados com usuários da equipe do tenant (sessão via cookie HttpOnly
-ou JWT, a decidir no M8). O contrato é publicado em OpenAPI. Ver
-[ADR-009](adr/ADR-009-frontend-repositorio-separado.md).
+Technology: the panel is a **separate frontend in its own repository** (`auto-msg-frontend`,
+created in M8; stack to be defined, suggestion React + Vite + TypeScript). This repository
+(`auto-msg-backend`) exposes a **REST API** (`/api/v1/...`) and an **SSE** stream of order
+events, authenticated with the tenant's staff users (HttpOnly cookie session or JWT, to be
+decided in M8). The contract is published as OpenAPI. See
+[ADR-009](adr/ADR-009-separate-frontend-repository.md).
 
 ## 13. LGPD
 
-- **Papéis:** restaurante = controlador; plataforma = operadora (contrato/DPA). Anthropic e
-  Meta como suboperadores — transferência internacional informada na política de privacidade.
-- **Base legal:** execução de contrato/procedimentos preliminares (pedido) e legítimo
-  interesse (dúvidas). **Consentimento explícito só para marketing** (fase 2).
-- **Aviso no primeiro contato** com link para a política; registro em `contact.consent_notice_at`.
-- **Minimização:** ao LLM vai só o necessário (primeiro nome, nunca o telefone completo).
-- **Retenção configurável por tenant:** mensagens (padrão 180 dias) → apagadas; pedidos →
-  mantidos para fins fiscais, com dados pessoais anonimizados após o prazo.
-- **Direitos do titular:** comando "apagar meus dados" (e via painel) → `data_subject_request`
-  → job de anonimização do contato, exclusão de mensagens, confirmação ao cliente.
+- **Roles:** restaurant = controller; platform = processor (contract/DPA). Anthropic and Meta
+  as sub-processors — international transfer disclosed in the privacy policy.
+- **Legal basis:** performance of a contract/preliminary steps (orders) and legitimate interest
+  (questions). **Explicit consent only for marketing** (phase 2).
+- **Notice on first contact** with a link to the policy; recorded in
+  `contact.consent_notice_at`.
+- **Minimization:** the LLM gets only what is needed (first name, never the full phone number).
+- **Retention configurable per tenant:** messages (default 180 days) → deleted; orders → kept
+  for tax purposes, with personal data anonymized after the period.
+- **Data subject rights:** the "apagar meus dados" command (and the panel) →
+  `data_subject_request` → job that anonymizes the contact, deletes messages and confirms to
+  the customer.
 
-## 14. Observabilidade
+## 14. Observability
 
-- Logs JSON estruturados (`logging.structured.format.console=ecs`) com MDC: `tenant_id`,
+- Structured JSON logs (`logging.structured.format.console=ecs`) with MDC: `tenant_id`,
   `conversation_id`, `wamid`, `trace_id`.
-- Micrometer + OpenTelemetry: um *trace* por mensagem recebida, com spans de LLM, ferramentas
-  e envio.
-- Métricas: latência do webhook, atraso da fila (idade do evento mais antigo), taxa de erro,
-  tokens/custo de LLM por tenant, mensagens WhatsApp por categoria de cobrança por tenant,
-  taxa de transbordo.
+- Micrometer + OpenTelemetry: one trace per received message, with spans for LLM, tools and
+  sending.
+- Metrics: webhook latency, queue lag (age of the oldest event), error rate, LLM tokens/cost per
+  tenant, WhatsApp messages per pricing category per tenant, handoff rate.
 - Actuator: `/actuator/health` (liveness/readiness), `/actuator/prometheus`.
 
-## 15. Deploy
+## 15. Deployment
 
-VPS única com Docker Compose (app + Postgres), TLS via Caddy, backup diário do Postgres para
-storage externo (ex.: S3 compatível). Imagem da app construída pelo `Dockerfile` multi-stage.
-Um único processo atende confortavelmente o volume previsto (≤ 50 pedidos/dia).
+A single VPS with Docker Compose (app + PostgreSQL), TLS through Caddy, daily PostgreSQL backup
+to external storage (e.g. S3-compatible). The app image is built by the multi-stage
+`Dockerfile`. One process comfortably handles the expected volume (≤ 50 orders/day).
