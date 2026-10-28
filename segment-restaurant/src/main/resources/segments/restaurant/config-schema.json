@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conversa/segments/restaurant/v1/config-schema.json",
+  "title": "Restaurant tenant configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["business", "assistant", "fulfillment", "paymentMethods", "staffNumbers", "handoff"],
+  "properties": {
+    "business": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "address": { "type": "string", "maxLength": 200 },
+        "city": { "type": "string", "maxLength": 80 }
+      }
+    },
+    "assistant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tone"],
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "tone": { "enum": ["friendly", "formal", "casual"] }
+      }
+    },
+    "fulfillment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delivery", "pickup"],
+      "properties": {
+        "delivery": { "type": "boolean" },
+        "pickup": { "type": "boolean" },
+        "minimumOrder": { "type": "number", "minimum": 0 }
+      },
+      "anyOf": [
+        { "properties": { "delivery": { "const": true } } },
+        { "properties": { "pickup": { "const": true } } }
+      ]
+    },
+    "paymentMethods": {
+      "description": "Paid on delivery or pickup (D-005).",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["cash", "card_on_delivery", "pix_on_delivery"] }
+    },
+    "deliveryZones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["neighborhood", "fee"],
+        "properties": {
+          "neighborhood": { "type": "string", "minLength": 2, "maxLength": 80 },
+          "fee": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "staffNumbers": {
+      "description": "WhatsApp numbers that receive new orders (D-004), digits with country code.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[1-9][0-9]{10,14}$" }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pauseMinutes"],
+      "properties": {
+        "pauseMinutes": { "type": "integer", "minimum": 5, "maximum": 1440 }
+      }
+    }
+  }
+}

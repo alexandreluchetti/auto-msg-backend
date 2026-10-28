@@ -2,6 +2,9 @@ package br.com.conversa.app.outbound;
 
 import br.com.conversa.app.TestcontainersConfiguration;
 import br.com.conversa.app.inbound.InboundWorker;
+import br.com.conversa.app.tenant.TenantChannelService;
+import br.com.conversa.app.tenant.TenantService;
+import br.com.conversa.core.tenant.TenantId;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +39,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(properties = {
         "conversa.whatsapp.app-secret=" + OutboundFlowIT.APP_SECRET,
-        "conversa.whatsapp.access-token=it-access-token",
+        "conversa.whatsapp.access-token=it-platform-token",
+        "IT_PILOT_TOKEN=it-pilot-token",
         "conversa.echo-bot.enabled=true",
         "conversa.workers.enabled=false",
         "conversa.workers.max-attempts=2",
@@ -82,11 +86,23 @@ class OutboundFlowIT {
     @Autowired
     ObjectMapper mapper;
 
+    @Autowired
+    TenantService tenantService;
+
+    @Autowired
+    TenantChannelService channels;
+
+    private TenantId tenant;
+
     @BeforeEach
     void clean() {
         jdbc.sql("DELETE FROM outbound_message").update();
         jdbc.sql("DELETE FROM inbound_event").update();
+        jdbc.sql("DELETE FROM tenant_channel").update();
+        jdbc.sql("DELETE FROM tenant").update();
         graph.reset();
+        tenant = tenantService.create("pilot", "Pilot", "restaurant", "{\"business\": {\"name\": \"Cantina Pilot\"}}");
+        channels.register(tenant, PHONE_NUMBER_ID, "100000000000001", "IT_PILOT_TOKEN");
     }
 
     @Test
@@ -112,6 +128,31 @@ class OutboundFlowIT {
         assertThat(rows()).extracting(row -> row.get("kind") + ":" + row.get("status"))
                 .containsExactly("READ:SENT", "TEXT:SENT");
         assertThat(rows().get(1).get("wamid")).isEqualTo("wamid.OUT1");
+        assertThat(graph.authorizations()).containsOnly("Bearer it-pilot-token");
+        assertThat(jdbc.sql("SELECT DISTINCT tenant_id FROM outbound_message").query(java.util.UUID.class).list())
+                .containsExactly(tenant.value());
+    }
+
+    @Test
+    void messagesToNumbersWithoutTenantAreNotAnswered() throws Exception {
+        jdbc.sql("DELETE FROM tenant_channel").update();
+
+        postWebhook(textMessage("wamid.IN0002", CUSTOMER, Instant.now(), "Oi"));
+        inboundWorker.runOnce();
+
+        assertThat(rows()).isEmpty();
+        assertThat(jdbc.sql("SELECT status FROM inbound_event").query(String.class).single()).isEqualTo("PROCESSED");
+    }
+
+    @Test
+    void numberWithoutItsOwnTokenUsesThePlatformToken() {
+        channels.register(tenant, PHONE_NUMBER_ID, "100000000000001", null);
+        outbound.enqueue("k1", tenant, OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "aviso", "pt_BR",
+                List.of(), mapper));
+
+        senderWorker.runOnce();
+
+        assertThat(graph.authorizations()).containsExactly("Bearer it-platform-token");
     }
 
     @Test
@@ -127,9 +168,9 @@ class OutboundFlowIT {
                 .param("payload", "{\"item\":{\"timestamp\":\""
                         + Instant.now().minus(Duration.ofHours(25)).getEpochSecond() + "\"}}")
                 .update();
-        outbound.enqueue("t1", OutboundRequest.text(PHONE_NUMBER_ID, CUSTOMER, "Seu pedido saiu!", mapper));
-        outbound.enqueue("t2", OutboundRequest.text(PHONE_NUMBER_ID, OTHER_CUSTOMER, "Oi!", mapper));
-        outbound.enqueue("t3", OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "pedido_saiu_para_entrega",
+        outbound.enqueue("t1", tenant, OutboundRequest.text(PHONE_NUMBER_ID, CUSTOMER, "Seu pedido saiu!", mapper));
+        outbound.enqueue("t2", tenant, OutboundRequest.text(PHONE_NUMBER_ID, OTHER_CUSTOMER, "Oi!", mapper));
+        outbound.enqueue("t3", tenant, OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "pedido_saiu_para_entrega",
                 "pt_BR", List.of("Ana"), mapper));
 
         senderWorker.runOnce();
@@ -143,7 +184,7 @@ class OutboundFlowIT {
 
     @Test
     void retryableFailureIsRetriedUntilMaxAttempts() {
-        outbound.enqueue("r1", OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "aviso", "pt_BR", List.of(),
+        outbound.enqueue("r1", tenant, OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "aviso", "pt_BR", List.of(),
                 mapper));
         graph.failWith(503, "");
 
@@ -158,7 +199,7 @@ class OutboundFlowIT {
 
     @Test
     void retryableFailureSucceedsOnTheNextAttempt() {
-        outbound.enqueue("r2", OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "aviso", "pt_BR", List.of(),
+        outbound.enqueue("r2", tenant, OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "aviso", "pt_BR", List.of(),
                 mapper));
         graph.failWith(400, "{\"error\":{\"message\":\"Rate limit hit\",\"code\":130429}}");
         senderWorker.runOnce();
@@ -171,7 +212,7 @@ class OutboundFlowIT {
 
     @Test
     void permanentFailureIsNotRetried() {
-        outbound.enqueue("p1", OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "inexistente", "pt_BR",
+        outbound.enqueue("p1", tenant, OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "inexistente", "pt_BR",
                 List.of(), mapper));
         graph.failWith(400, "{\"error\":{\"message\":\"Template name does not exist\",\"code\":132001}}");
 
@@ -183,7 +224,7 @@ class OutboundFlowIT {
 
     @Test
     void statusWebhooksUpdateDeliveryAndOnlyMoveForward() throws Exception {
-        outbound.enqueue("s1", OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "aviso", "pt_BR", List.of(),
+        outbound.enqueue("s1", tenant, OutboundRequest.template(PHONE_NUMBER_ID, CUSTOMER, "aviso", "pt_BR", List.of(),
                 mapper));
         senderWorker.runOnce();
         String wamid = (String) rows().getFirst().get("wamid");

@@ -1,8 +1,10 @@
 package br.com.conversa.app.outbound;
 
+import br.com.conversa.core.tenant.TenantId;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Types;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
@@ -16,8 +18,8 @@ import java.util.List;
 public class OutboundMessageRepository {
 
     private static final String ENQUEUE = """
-            INSERT INTO outbound_message (idempotency_key, phone_number_id, wa_id, kind, payload)
-            VALUES (:key, :phoneNumberId, :waId, :kind, CAST(:payload AS jsonb))
+            INSERT INTO outbound_message (idempotency_key, tenant_id, phone_number_id, wa_id, kind, payload)
+            VALUES (:key, :tenantId, :phoneNumberId, :waId, :kind, CAST(:payload AS jsonb))
             ON CONFLICT (idempotency_key) DO NOTHING
             """;
 
@@ -50,10 +52,14 @@ public class OutboundMessageRepository {
         this.jdbc = jdbc;
     }
 
-    /** @return false if a request with the same key was already enqueued */
-    public boolean enqueue(String idempotencyKey, OutboundRequest request) {
+    /**
+     * @param tenant owner of the message; null only for numbers no tenant registered
+     * @return false if a request with the same key was already enqueued
+     */
+    public boolean enqueue(String idempotencyKey, TenantId tenant, OutboundRequest request) {
         return jdbc.sql(ENQUEUE)
                 .param("key", idempotencyKey)
+                .param("tenantId", tenant == null ? null : tenant.value(), Types.OTHER)
                 .param("phoneNumberId", request.phoneNumberId())
                 .param("waId", request.waId())
                 .param("kind", request.kind().name())

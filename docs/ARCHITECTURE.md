@@ -137,8 +137,9 @@ Key points:
 - **Webhook implemented (M1):** `GET|POST /webhooks/whatsapp`. Each notification is split into
   atomic events keyed `msg:<wamid>`, `status:<wamid>:<status>`, `echo:<wamid>` or
   `<field>:<sha256 of the change>` (other fields). Invalid signature → 401; signed but invalid
-  payload → 400; otherwise 200, duplicates included. `tenant_id` stays null until it is
-  resolved by `phone_number_id` (M3).
+  payload → 400; otherwise 200, duplicates included. `tenant_id` is resolved from the
+  `phone_number_id` when the event is stored (null for numbers no tenant registered; their
+  messages are not answered).
 - **Workers implemented (M2):**
   - `InboundWorker` handles one `inbound_event` per transaction (`FOR UPDATE SKIP LOCKED`) in
     arrival order. Statuses update `outbound_message` (`delivery_status` only moves forward,
@@ -152,11 +153,10 @@ Key points:
     is failed with `WINDOW_CLOSED` without calling Meta; templates and read receipts always go.
     Retryable errors (HTTP 429/5xx, network, Meta rate-limit codes) back off exponentially with
     jitter; others fail at once.
-  - The 24h window is the customer's latest message `timestamp` in `inbound_event` until M3
-    adds `conversation.window_expires_at`.
+  - The 24h window is the customer's latest message `timestamp` in `inbound_event` until the
+    `conversation` table (with `window_expires_at`) arrives with the conversation engine.
   - Sending goes through the `ChannelGateway` port (`platform-core`), implemented by
-    `WhatsAppCloudApiGateway` with one access token (`WHATSAPP_ACCESS_TOKEN`) until per-tenant
-    tokens (M3).
+    `WhatsAppCloudApiGateway`, with the token of the sending number (see section 7).
   - A single worker of each kind runs (scheduled polling); advisory locks and `LISTEN/NOTIFY`
     come with parallel workers.
 - **Idempotency at 3 levels:** unique `inbound_event.event_key` (message wamid or
@@ -225,10 +225,23 @@ Platform (defaults)
   **Pack-specific data:** delivery order (restaurant), appointment (clinic/salon, future),
   reservation (future).
 - **Isolation:** every business table has `tenant_id` + **RLS** with
-  `current_setting('app.tenant_id')`, set by `SET LOCAL` at the start of each transaction. The
-  application uses a role without `BYPASSRLS`; migrations run with another role. Queue tables
-  (`inbound_event`, `outbound_message`) carry `tenant_id` but have no RLS, because claiming is
-  cross-tenant; the worker sets the tenant before touching business data.
+  `current_setting('app.tenant_id')`. Business work runs through `TenantTransactions`, which sets
+  `app.tenant_id` for the transaction and switches to the `conversa_app` role
+  (`SET LOCAL ROLE`), which does not bypass RLS; see [ADR-010](adr/ADR-010-rls-enforcement.md).
+  An unset tenant matches no row. Queue tables (`inbound_event`, `outbound_message`) carry
+  `tenant_id` but have no RLS, because claiming is cross-tenant; workers bind the tenant before
+  touching business data.
+- **Implemented (M3):** `tenant` and `tenant_channel` under RLS; the edge resolves the tenant of a
+  `phone_number_id` with the `SECURITY DEFINER` functions `channel_tenant_id` and
+  `channel_access_token_ref`. `SegmentPackRegistry` holds the deployed packs (one version each);
+  `TenantConfigResolver` merges the pack's `defaults.json` with the tenant's own settings and
+  validates the result against `config-schema.json` (JSON Schema 2020-12). Tenants store only
+  their own settings. Until onboarding from the panel, `TenantBootstrap` seeds one tenant and its
+  number at startup from `conversa.bootstrap.*` (the pilot restaurant; the test number in
+  development).
+- **Access tokens:** `tenant_channel.access_token_ref` names a property or environment variable
+  holding that number's Cloud API token; the database never holds tokens. Numbers without one use
+  the platform token (`WHATSAPP_ACCESS_TOKEN`).
 
 ## 8. Initial data model
 

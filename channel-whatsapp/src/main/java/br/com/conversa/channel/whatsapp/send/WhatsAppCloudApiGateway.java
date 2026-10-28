@@ -17,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 /**
  * Sends messages through {@code POST /{phone_number_id}/messages} of the Graph API.
@@ -29,14 +30,24 @@ public final class WhatsAppCloudApiGateway implements ChannelGateway {
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(15);
 
     private final String messagesUrlPrefix;
-    private final String accessToken;
+    private final UnaryOperator<String> accessTokenForSender;
     private final HttpClient http;
     private final ObjectMapper mapper;
 
+    /** Every number uses the same token. */
     public WhatsAppCloudApiGateway(String graphApiUrl, String graphApiVersion, String accessToken,
                                    HttpClient http, ObjectMapper mapper) {
+        this(graphApiUrl, graphApiVersion, senderId -> accessToken, http, mapper);
+    }
+
+    /**
+     * @param accessTokenForSender token of each sending number ({@code phone_number_id}); blank or
+     *                             null fails the call without contacting Meta
+     */
+    public WhatsAppCloudApiGateway(String graphApiUrl, String graphApiVersion,
+                                   UnaryOperator<String> accessTokenForSender, HttpClient http, ObjectMapper mapper) {
         this.messagesUrlPrefix = stripTrailingSlash(graphApiUrl) + "/" + graphApiVersion + "/";
-        this.accessToken = accessToken;
+        this.accessTokenForSender = accessTokenForSender;
         this.http = http;
         this.mapper = mapper;
     }
@@ -80,8 +91,9 @@ public final class WhatsAppCloudApiGateway implements ChannelGateway {
     }
 
     private SendResult post(String senderId, ObjectNode body) {
+        String accessToken = accessTokenForSender.apply(senderId);
         if (accessToken == null || accessToken.isBlank()) {
-            return new SendResult.Failed(false, "NOT_CONFIGURED", "conversa.whatsapp.access-token is not set");
+            return new SendResult.Failed(false, "NOT_CONFIGURED", "no access token for this sending number");
         }
         HttpRequest request = HttpRequest.newBuilder(URI.create(messagesUrlPrefix + senderId + "/messages"))
                 .timeout(REQUEST_TIMEOUT)

@@ -66,9 +66,15 @@ Regras (verificadas por `ArchitectureTest`):
 
 ## Regras de domínio que não podem ser quebradas
 
-- **Isolamento por tenant:** toda tabela de negócio tem `tenant_id` e política RLS; toda
-  transação de negócio roda com `app.tenant_id` definido (`SET LOCAL`). Teste novo de
-  repositório deve provar que outro tenant não enxerga os dados.
+- **Isolamento por tenant:** toda tabela de negócio tem `tenant_id` e política RLS
+  (`tenant_isolation`, como em `V4`); todo acesso a ela passa por
+  `TenantTransactions.inTenant/runInTenant`, que define `app.tenant_id` e troca para o role
+  `conversa_app` (ADR-010). Fora disso a conexão é a do dono das tabelas e o RLS **não** protege.
+  Teste novo de repositório deve provar que outro tenant não enxerga os dados (modelo:
+  `TenantIsolationIT`). Busca na borda antes do tenant (por `phone_number_id`) só por função
+  `SECURITY DEFINER`.
+- **Segredos nunca no banco:** tokens ficam em variáveis de ambiente; o banco guarda só o nome
+  (`tenant_channel.access_token_ref`).
 - **Fatos de negócio só por ferramentas** (D-007). O LLM nunca é fonte de preço, horário, taxa
   ou disponibilidade.
 - **Pedido só é confirmado por ação determinística** (clique no botão de confirmação, D-006),
@@ -157,6 +163,10 @@ versionados.
   `CustomerServiceWindow`, retry de `WorkerProperties`) → `ChannelGateway`
   (`WhatsAppCloudApiGateway`). Nos ITs, `conversa.workers.enabled=false` e chame `runOnce()`;
   a Graph API é simulada por `FakeGraphApi` (nunca a real).
+- Tenants (M3): `TenantService` (criar, configurar, config efetiva), `TenantChannelService`
+  (números, resolução por `phone_number_id`), `TenantConfigResolver` (defaults do pack +
+  config do tenant, validada por `config-schema.json`), `SegmentPackRegistry`,
+  `TenantBootstrap` (`BOOTSTRAP_*`), `ChannelAccessTokens` (token por número).
 - Fronteiras de módulos: `ArchitectureTest`.
 - SPIs do núcleo: `SegmentPack`, `Tool`, `ToolInvocation`, `ToolResult` em `platform-core`.
 - Segment Pack de restaurante: `RestaurantSegmentPack`; fiação em `PlatformConfiguration`.

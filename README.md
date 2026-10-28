@@ -96,11 +96,16 @@ starts PostgreSQL with Testcontainers.
 | `POSTGRES_PORT` | Host port of the compose PostgreSQL | `5433` |
 | `WHATSAPP_VERIFY_TOKEN` | Token Meta sends when verifying the webhook URL | empty (verification refused) |
 | `WHATSAPP_APP_SECRET` | Meta app secret, validates `X-Hub-Signature-256` | empty (every webhook POST refused) |
-| `WHATSAPP_ACCESS_TOKEN` | Cloud API access token used to send (one for the platform until M3) | empty (sending fails) |
+| `WHATSAPP_ACCESS_TOKEN` | Platform Cloud API token, used by numbers without their own token reference | empty (those numbers cannot send) |
 | `WHATSAPP_GRAPH_API_URL` | Graph API base URL | `https://graph.facebook.com` |
 | `WHATSAPP_GRAPH_API_VERSION` | Graph API version | `v24.0` |
 | `WORKERS_ENABLED` | Runs the inbound and outbound queue workers | `true` |
 | `ECHO_BOT_ENABLED` | Development aid for the test number: marks each customer text as read and answers `Recebemos: <text>` | `false` |
+| `BOOTSTRAP_TENANT_SLUG` / `BOOTSTRAP_TENANT_NAME` | Tenant created at startup (pilot restaurant; test number in development). Empty slug: no bootstrap | empty |
+| `BOOTSTRAP_TENANT_SEGMENT` | Segment Pack of that tenant | `restaurant` |
+| `BOOTSTRAP_TENANT_CONFIG` | Tenant settings as a JSON object, merged over the pack defaults and validated by its schema; replaces the stored settings on every start | empty (keep stored) |
+| `BOOTSTRAP_PHONE_NUMBER_ID` / `BOOTSTRAP_WABA_ID` | Cloud API number of that tenant | empty |
+| `BOOTSTRAP_ACCESS_TOKEN_REF` | Name of the variable holding that number's token | empty (platform token) |
 | `ANTHROPIC_API_KEY` | Claude API key (from M5) | — |
 | `ANTHROPIC_DEFAULT_MODEL` | Default Claude model | `claude-opus-5-5` |
 

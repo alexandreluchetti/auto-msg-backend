@@ -70,9 +70,18 @@ through a REST + SSE API (ADR-009).
   the WhatsApp Business app for the rest.
 - Sending retries: up to 5 attempts for temporary errors (rate limits, Meta or network outages),
   waiting 5 s and doubling, up to 10 minutes; other errors fail at once.
-- Until tenants exist (M3), one Cloud API access token serves the whole platform. An echo bot
+- Each number may have its own Cloud API token, referenced by name (property or environment
+  variable) and never stored in the database; numbers without one use the platform token. An echo bot
   ("Recebemos: <text>"), off by default, exists only to test the test number; it is removed when
   the conversation engine arrives (M5).
+- Restaurant configuration (pack v1): business name (required), address and city; assistant name
+  and tone (friendly, formal, casual); delivery and/or pickup with an optional minimum order;
+  payment methods among cash, card on delivery and Pix paid on delivery/pickup (no bot-generated
+  Pix, D-005); delivery zones (neighborhood → fee); staff numbers that receive orders; handoff
+  pause (5–1440 min). Pack defaults: assistant "Assistente", friendly; delivery and pickup; cash
+  and card on delivery; 60 min pause.
+- Until onboarding from the panel exists, the pilot tenant and its number are created at startup
+  from environment settings (`BOOTSTRAP_*`).
 - Local development ports: PostgreSQL on `5433`, API on `8081` (5432/8080 are used by other
   local projects).
 

@@ -1,11 +1,13 @@
 package br.com.conversa.app.inbound;
 
 import br.com.conversa.channel.whatsapp.webhook.WebhookEventType;
+import br.com.conversa.core.tenant.TenantId;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Consumer side of {@code inbound_event}. {@link #claimNext()} must run inside the transaction that
@@ -22,7 +24,7 @@ class InboundEventQueue {
 
     Optional<ClaimedInbound> claimNext() {
         return jdbc.sql("""
-                        SELECT id, event_key, event_type, phone_number_id, wa_id, payload::text AS payload, attempts
+                        SELECT id, event_key, event_type, tenant_id, phone_number_id, wa_id, payload::text AS payload, attempts
                         FROM inbound_event
                         WHERE status = 'PENDING' AND available_at <= now()
                         ORDER BY available_at, id
@@ -33,6 +35,8 @@ class InboundEventQueue {
                         rs.getLong("id"),
                         rs.getString("event_key"),
                         WebhookEventType.valueOf(rs.getString("event_type")),
+                        rs.getObject("tenant_id", UUID.class) == null ? null
+                                : new TenantId(rs.getObject("tenant_id", UUID.class)),
                         rs.getString("phone_number_id"),
                         rs.getString("wa_id"),
                         rs.getString("payload"),
@@ -65,7 +69,8 @@ class InboundEventQueue {
                 .update();
     }
 
-    record ClaimedInbound(long id, String eventKey, WebhookEventType type, String phoneNumberId, String waId,
+    record ClaimedInbound(long id, String eventKey, WebhookEventType type, TenantId tenantId, String phoneNumberId,
+                          String waId,
                           String payloadJson, int attempts) {
     }
 }
