@@ -95,6 +95,15 @@ through a REST + SSE API (ADR-009).
   and effort (`low`, `medium`, `high`) of its assistant in its configuration (`llm`).
 - The M5 eval uses 56 synthetic questions over a synthetic restaurant until real, anonymized
   questions from the pilot replace them.
+- Handoff (M6): the bot hands over when the customer plainly asks for a person, when the assistant
+  decides it (`request_human`: orders until M7, complaints, questions about an existing order,
+  anything it cannot solve) or after 2 answers in a row it could not give. The customer gets
+  "Certo! Vou chamar alguém da equipe para continuar o seu atendimento por aqui. É só aguardar um
+  pouquinho." Staff alerts show the customer's WhatsApp name and only the last 4 digits of the
+  number. A staff reply from the app pauses the bot with no alert.
+- Staff alert template to submit to Meta (utility, pt_BR), name configured in
+  `HANDOFF_STAFF_ALERT_TEMPLATE`, suggested body: "Novo atendimento para a equipe: {{1}} — {{2}}.
+  Responda pelo WhatsApp Business." Until it is approved, alerts are not sent by WhatsApp.
 - Local development ports: PostgreSQL on `5433`, API on `8081` (5432/8080 are used by other
   local projects).
 

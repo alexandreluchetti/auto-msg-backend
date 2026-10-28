@@ -52,6 +52,9 @@ conversa:
   assistant:
     enabled: ${ASSISTANT_ENABLED:true}
     default-effort: ${ASSISTANT_EFFORT:low}
+  handoff:
+    staff-alert-template: ${HANDOFF_STAFF_ALERT_TEMPLATE:}
+    staff-alert-language: ${HANDOFF_STAFF_ALERT_LANGUAGE:pt_BR}
   workers:
     enabled: ${WORKERS_ENABLED:true}
   bootstrap:

@@ -50,6 +50,18 @@ public class AssistantEngine {
             + "daqui a pouco? A equipe do restaurante também acompanha esta conversa.";
     static final String REFUSAL_TEXT = "Desculpe, não posso ajudar com isso. Posso ajudar com o cardápio, "
             + "horários, entrega ou formas de pagamento?";
+    /**
+     * Control tool every pack gets (ADR-002): the assistant hands the conversation to staff. The
+     * engine stops at the call; the handoff itself is deterministic ({@link HandoffService}).
+     */
+    static final ToolSpec REQUEST_HUMAN = new ToolSpec("request_human", """
+            Passa a conversa para a equipe do restaurante, que continua o atendimento por esta mesma \
+            conversa. Use quando o cliente pedir para falar com uma pessoa, reclamar de um pedido ou \
+            de um problema, ou quando você não conseguir ajudar depois de tentar com as outras \
+            ferramentas. Depois de chamar, não escreva mais nada: o sistema avisa o cliente.""", """
+            {"type": "object", "additionalProperties": false, "required": ["reason"], "properties": {
+              "reason": {"type": "string", "description": "Motivo em poucas palavras, para a equipe"}
+            }}""");
     private static final int MAX_TEXT = 4000;
     private static final DateTimeFormatter NOW = DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy, HH:mm",
             Locale.of("pt", "BR"));
@@ -65,9 +77,14 @@ public class AssistantEngine {
                        List<StoredMessage> history, String defaultModel, boolean lastAttempt) {
     }
 
-    public enum Outcome { ANSWERED, REFUSED, FALLBACK }
+    public enum Outcome { ANSWERED, REFUSED, FALLBACK, HANDOFF }
 
-    public record Answer(String text, Outcome outcome, List<String> toolsCalled) {
+    /** {@code handoffDetail} is the assistant's reason when the outcome is {@link Outcome#HANDOFF}. */
+    public record Answer(String text, Outcome outcome, List<String> toolsCalled, String handoffDetail) {
+
+        Answer(String text, Outcome outcome, List<String> toolsCalled) {
+            this(text, outcome, toolsCalled, null);
+        }
     }
 
     private final LlmClient llm;
@@ -99,7 +116,8 @@ public class AssistantEngine {
                 .collect(Collectors.toMap(Tool::name, Function.identity()));
         List<ToolSpec> specs = turn.pack().tools().stream()
                 .map(tool -> new ToolSpec(tool.name(), tool.description(), tool.inputSchema()))
-                .toList();
+                .collect(Collectors.toCollection(ArrayList::new));
+        specs.add(REQUEST_HUMAN);
         String system = turn.pack().systemPrompt(turn.configJson());
         List<LlmMessage> messages = new ArrayList<>(history(turn));
         List<String> toolsCalled = new ArrayList<>();
@@ -123,6 +141,12 @@ public class AssistantEngine {
                         return new Answer(FALLBACK_TEXT, Outcome.FALLBACK, toolsCalled);
                     }
                     messages.add(response.asAssistantMessage());
+                    var handoff = toolCalls.stream().filter(call -> call.name().equals(REQUEST_HUMAN.name())).findFirst();
+                    if (handoff.isPresent()) {
+                        toolsCalled.add(REQUEST_HUMAN.name());
+                        return new Answer(null, Outcome.HANDOFF, toolsCalled,
+                                mapper.readTree(handoff.get().inputJson()).path("reason").asString(""));
+                    }
                     List<LlmContent> outcomes = new ArrayList<>();
                     for (LlmContent.ToolCall call : toolCalls) {
                         toolsCalled.add(call.name());
@@ -186,7 +210,8 @@ public class AssistantEngine {
                 pending = new ArrayList<>();
             }
             customer = message.fromCustomer();
-            pending.add(new LlmContent.Text(message.text()));
+            pending.add(new LlmContent.Text("STAFF".equals(message.author())
+                    ? "[Mensagem da equipe do restaurante] " + message.text() : message.text()));
         }
         if (customer == null || !customer) {
             throw new IllegalStateException("No unanswered customer message in conversation " + turn.conversationId());

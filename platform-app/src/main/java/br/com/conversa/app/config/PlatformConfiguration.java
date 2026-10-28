@@ -1,6 +1,7 @@
 package br.com.conversa.app.config;
 
 import br.com.conversa.app.conversation.AssistantProperties;
+import br.com.conversa.app.conversation.HandoffProperties;
 import br.com.conversa.app.conversation.LlmPricing;
 import br.com.conversa.app.tenant.BootstrapProperties;
 import br.com.conversa.app.tenant.TenantService;
@@ -24,7 +25,7 @@ import java.time.Clock;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({WhatsAppProperties.class, AnthropicProperties.class, BootstrapProperties.class,
-        AssistantProperties.class, LlmPricing.class})
+        AssistantProperties.class, LlmPricing.class, HandoffProperties.class})
 class PlatformConfiguration {
 
     @Bean

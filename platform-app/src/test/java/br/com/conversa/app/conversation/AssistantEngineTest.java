@@ -109,7 +109,7 @@ class AssistantEngineTest {
 
         var second = llm.requests().get(1);
         assertThat(second.system()).isEqualTo("Você é a assistente.");
-        assertThat(second.tools()).extracting(spec -> spec.name()).containsExactly("search_menu");
+        assertThat(second.tools()).extracting(spec -> spec.name()).containsExactly("search_menu", "request_human");
         assertThat(second.messages()).hasSize(3);
         assertThat(second.messages().get(1).providerMessage()).isEqualTo("provider-turn-t1");
         assertThat(second.messages().get(2).content()).singleElement()
@@ -204,6 +204,32 @@ class AssistantEngineTest {
 
         assertThat(llm.requests().getFirst().model()).isEqualTo("claude-haiku-5-5");
         assertThat(llm.requests().getFirst().effort()).isEqualTo("medium");
+    }
+
+    @Test
+    void requestHumanStopsTheLoopWithTheReason() {
+        llm.then(new LlmResponse("claude-opus-5-5", List.of(
+                new LlmContent.ToolCall("t1", "search_menu", "{}"),
+                new LlmContent.ToolCall("t2", "request_human", "{\"reason\": \"cliente quer pedir 2 pizzas\"}")),
+                LlmResponse.StopReason.TOOL_USE, new br.com.conversa.core.llm.LlmUsage(1, 1, 0, 0), null));
+
+        var answer = engine.answer(turn(false, customer("Quero pedir duas pizzas")));
+
+        assertThat(answer.outcome()).isEqualTo(AssistantEngine.Outcome.HANDOFF);
+        assertThat(answer.handoffDetail()).isEqualTo("cliente quer pedir 2 pizzas");
+        assertThat(invocations).isEmpty();
+        assertThat(llm.requests()).hasSize(1);
+    }
+
+    @Test
+    void staffMessagesAreMarkedInTheHistory() {
+        llm.then(ScriptedLlm.text("Certo!"));
+
+        engine.answer(turn(false, customer("Oi"), new StoredMessage("OUT", "STAFF", "wamid.E", "Oi, aqui é a Ana",
+                Instant.now()), customer("Obrigado")));
+
+        assertThat(llm.requests().getFirst().messages().get(1).content())
+                .containsExactly(new LlmContent.Text("[Mensagem da equipe do restaurante] Oi, aqui é a Ana"));
     }
 
     @Test
