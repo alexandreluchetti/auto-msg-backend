@@ -77,9 +77,14 @@ through a REST + SSE API (ADR-009).
 - Restaurant configuration (pack v1): business name (required), address and city; assistant name
   and tone (friendly, formal, casual); delivery and/or pickup with an optional minimum order;
   payment methods among cash, card on delivery and Pix paid on delivery/pickup (no bot-generated
-  Pix, D-005); delivery zones (neighborhood → fee); staff numbers that receive orders; handoff
-  pause (5–1440 min). Pack defaults: assistant "Assistente", friendly; delivery and pickup; cash
-  and card on delivery; 60 min pause.
+  Pix, D-005); staff numbers that receive orders; handoff pause (5–1440 min). Pack defaults:
+  assistant "Assistente", friendly; delivery and pickup; cash and card on delivery; 60 min pause.
+- Menu, opening hours and delivery zones (neighborhood → fee) are tables, not configuration,
+  loaded from spreadsheets (`docs/IMPORT.md`) until the panel edits them. Items marked unavailable
+  stay visible to the bot as "out of stock today"; holidays/special dates are not supported yet.
+  The tenant's time zone defaults to `America/Sao_Paulo`.
+- A neighborhood typed with a typo is never charged directly: the bot offers the closest
+  registered names and asks the customer to confirm.
 - Until onboarding from the panel exists, the pilot tenant and its number are created at startup
   from environment settings (`BOOTSTRAP_*`).
 - Local development ports: PostgreSQL on `5433`, API on `8081` (5432/8080 are used by other

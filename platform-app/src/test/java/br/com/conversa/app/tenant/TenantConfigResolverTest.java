@@ -6,6 +6,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Clock;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -13,7 +15,7 @@ class TenantConfigResolverTest {
 
     private final ObjectMapper mapper = JsonMapper.builder().build();
     private final TenantConfigResolver resolver = new TenantConfigResolver(mapper);
-    private final RestaurantSegmentPack restaurant = new RestaurantSegmentPack();
+    private final RestaurantSegmentPack restaurant = new RestaurantSegmentPack(null, null, Clock.systemUTC());
 
     @Test
     void packDefaultsFillWhatTheTenantDoesNotSet() {
