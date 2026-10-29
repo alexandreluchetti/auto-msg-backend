@@ -1,7 +1,7 @@
 {
   "config": {
     "business": {"name": "Cantina da Praça", "address": "Rua Sete de Setembro, 120 - Centro", "city": "Bonfim Paulista"},
-    "assistant": {"name": "Rita", "tone": "friendly"},
+    "persona": {"name": "Rita", "tone": "friendly", "formality": 2, "emojis": "low"},
     "fulfillment": {"delivery": true, "pickup": true, "minimumOrder": 30},
     "paymentMethods": ["cash", "card_on_delivery", "pix_on_delivery"]
   },

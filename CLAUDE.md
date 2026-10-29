@@ -209,6 +209,11 @@ versionados.
   (Caddy do repositório do painel, backup diário, Prometheus/Grafana). Testes: `PrivacyFlowIT`,
   `BackupRestoreIT`. Respostas de teste comparadas por texto devem ignorar o aviso com
   `PrivacyNotices.strip`.
+- Persona (H2): `app.persona` — `PersonaPrompt` (renderiza o modelo com a persona),
+  `PersonaTexts` (textos fixos por tom e trava contra "sou humano"), `PromptTemplates` (modelos
+  versionados; o `prompts/system.md` do pack é semeado como padrão publicado). Config com rascunho e
+  publicada em `TenantService` (`saveDraft`, `publishDraft`, `effectiveDraftConfig`). Teste:
+  `PersonaVersionsIT`.
 - Eval do M5: `AssistantEval` (`eval/restaurant-questions.json`) chama a **API real e gera
   custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
   (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);

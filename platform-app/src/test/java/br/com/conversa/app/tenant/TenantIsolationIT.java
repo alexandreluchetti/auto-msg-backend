@@ -170,7 +170,7 @@ class TenantIsolationIT {
         var config = tenantService.effectiveConfig(tenantA);
         assertThat(config.path("business").path("name").asString()).isEqualTo("Cantina Nova");
         assertThat(config.path("handoff").path("pauseMinutes").asInt()).isEqualTo(30);
-        assertThat(config.path("assistant").path("tone").asString()).isEqualTo("friendly");
+        assertThat(config.path("persona").path("tone").asString()).isEqualTo("friendly");
     }
 
     @Test

@@ -44,13 +44,13 @@ public interface SegmentPack {
     }
 
     /**
-     * System prompt of the assistant for a tenant, from {@code prompts/system.md}. It must depend
-     * only on the configuration (never on the time or the conversation), so the provider can cache
-     * it across conversations.
-     *
-     * @param effectiveConfigJson the tenant's effective configuration
+     * The segment's default prompt template, from {@code prompts/system.md}: the version the platform
+     * ships, seeded into the versioned templates (ADR-011). Placeholders: {@code {{persona}}} (the
+     * persona block) and {@code {{path.in.config}}} (a text value of the tenant's configuration).
+     * The rendered prompt depends only on the configuration, never on the time or the conversation,
+     * so the provider can cache it.
      */
-    default String systemPrompt(String effectiveConfigJson) {
+    default String defaultPromptTemplate() {
         return resource("prompts/system.md");
     }
 

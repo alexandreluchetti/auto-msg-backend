@@ -11,13 +11,10 @@ import br.com.conversa.segment.restaurant.tool.BusinessInfoTool;
 import br.com.conversa.segment.restaurant.tool.CartTools;
 import br.com.conversa.segment.restaurant.tool.DeliveryFeeTool;
 import br.com.conversa.segment.restaurant.tool.SearchMenuTool;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Restaurant Segment Pack: read tools (menu, opening hours, delivery fee, business info) and the
@@ -54,20 +51,4 @@ public final class RestaurantSegmentPack implements SegmentPack {
     public List<Tool> tools() {
         return tools;
     }
-
-    @Override
-    public String systemPrompt(String effectiveConfigJson) {
-        JsonNode config = MAPPER.readTree(effectiveConfigJson);
-        return resource("prompts/system.md")
-                .replace("{{assistantName}}", config.path("assistant").path("name").asString("Assistente"))
-                .replace("{{businessName}}", config.path("business").path("name").asString(""))
-                .replace("{{tone}}", TONES.getOrDefault(config.path("assistant").path("tone").asString(), TONES.get("friendly")));
-    }
-
-    private static final JsonMapper MAPPER = JsonMapper.builder().build();
-
-    private static final Map<String, String> TONES = Map.of(
-            "friendly", "simpático e acolhedor",
-            "formal", "cordial e formal, tratando o cliente por \"você\" sem gírias",
-            "casual", "descontraído e próximo");
 }

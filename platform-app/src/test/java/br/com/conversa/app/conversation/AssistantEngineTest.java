@@ -1,6 +1,7 @@
 package br.com.conversa.app.conversation;
 
 import br.com.conversa.app.conversation.ConversationRepository.StoredMessage;
+import br.com.conversa.app.persona.PersonaTexts;
 import br.com.conversa.core.llm.LlmContent;
 import br.com.conversa.core.llm.LlmException;
 import br.com.conversa.core.llm.LlmMessage;
@@ -31,6 +32,7 @@ class AssistantEngineTest {
     private static final TenantId TENANT = TenantId.of("00000000-0000-0000-0000-00000000000a");
     private static final UUID CONVERSATION = UUID.fromString("00000000-0000-0000-0000-0000000000c1");
     private static final String CONFIG = "{\"business\": {\"name\": \"Cantina\"}}";
+    private static final String PROMPT = "Você é a assistente.";
 
     private final Clock clock = Clock.fixed(LocalDateTime.parse("2026-10-28T20:05").atZone(SAO_PAULO).toInstant(), SAO_PAULO);
     private final ScriptedLlm llm = new ScriptedLlm();
@@ -85,10 +87,6 @@ class AssistantEngineTest {
             return List.of(menu);
         }
 
-        @Override
-        public String systemPrompt(String effectiveConfigJson) {
-            return "Você é a assistente.";
-        }
     };
 
     @Test
@@ -171,7 +169,7 @@ class AssistantEngineTest {
         var answer = engine.answer(turn(false, customer("Tem pizza?")));
 
         assertThat(answer.outcome()).isEqualTo(AssistantEngine.Outcome.FALLBACK);
-        assertThat(answer.text()).isEqualTo(AssistantEngine.FALLBACK_TEXT);
+        assertThat(answer.text()).isEqualTo(PersonaTexts.fallback(mapper.readTree(CONFIG)));
         assertThat(invocations).hasSize(2);
     }
 
@@ -182,7 +180,7 @@ class AssistantEngineTest {
         var answer = engine.answer(turn(false, customer("Me ensina a hackear um site")));
 
         assertThat(answer.outcome()).isEqualTo(AssistantEngine.Outcome.REFUSED);
-        assertThat(answer.text()).isEqualTo(AssistantEngine.REFUSAL_TEXT);
+        assertThat(answer.text()).isEqualTo(PersonaTexts.refusal(mapper.readTree(CONFIG)));
     }
 
     @Test
@@ -198,7 +196,7 @@ class AssistantEngineTest {
     void modelAndEffortComeFromTheTenantConfiguration() {
         llm.then(ScriptedLlm.text("Oi!"));
 
-        engine.answer(new AssistantEngine.Turn(TENANT, CONVERSATION, pack,
+        engine.answer(new AssistantEngine.Turn(TENANT, CONVERSATION, pack, PROMPT,
                 "{\"llm\": {\"model\": \"claude-haiku-5-5\", \"effort\": \"medium\"}}", SAO_PAULO,
                 List.of(customer("Oi")), "claude-opus-5-5", false));
 
@@ -263,15 +261,11 @@ class AssistantEngineTest {
                 return List.of(checkout);
             }
 
-            @Override
-            public String systemPrompt(String effectiveConfigJson) {
-                return "Você é a assistente.";
-            }
         };
         llm.then(ScriptedLlm.toolCall("t1", "start_checkout", "{}"));
 
-        var answer = engine.answer(new AssistantEngine.Turn(TENANT, CONVERSATION, withCheckout, CONFIG, SAO_PAULO,
-                List.of(customer("Pode fechar")), "claude-opus-5-5", false));
+        var answer = engine.answer(new AssistantEngine.Turn(TENANT, CONVERSATION, withCheckout, PROMPT, CONFIG,
+                SAO_PAULO, List.of(customer("Pode fechar")), "claude-opus-5-5", false));
 
         assertThat(answer.outcome()).isEqualTo(AssistantEngine.Outcome.CHECKOUT);
         assertThat(answer.text()).isEqualTo("*Resumo do pedido*");
@@ -291,15 +285,26 @@ class AssistantEngineTest {
     }
 
     @Test
+    void anAnswerClaimingToBeAPersonIsReplaced() {
+        llm.then(ScriptedLlm.text("Não sou robô não, sou a Rita aqui da cozinha!"));
+
+        var answer = engine.answer(turn(false, customer("Você é um robô?")));
+
+        assertThat(answer.text()).isEqualTo(PersonaTexts.virtualAssistant(mapper.readTree(CONFIG)));
+        assertThat(answer.text()).contains("assistente virtual");
+    }
+
+    @Test
     void anEmptyAnswerFallsBack() {
         llm.then(new LlmResponse("claude-opus-5-5", List.of(), LlmResponse.StopReason.MAX_TOKENS,
                 new br.com.conversa.core.llm.LlmUsage(1, 1, 0, 0), null));
 
-        assertThat(engine.answer(turn(false, customer("Oi"))).text()).isEqualTo(AssistantEngine.FALLBACK_TEXT);
+        assertThat(engine.answer(turn(false, customer("Oi"))).text())
+                .isEqualTo(PersonaTexts.fallback(mapper.readTree(CONFIG)));
     }
 
     private AssistantEngine.Turn turn(boolean lastAttempt, StoredMessage... history) {
-        return new AssistantEngine.Turn(TENANT, CONVERSATION, pack, CONFIG, SAO_PAULO, List.of(history),
+        return new AssistantEngine.Turn(TENANT, CONVERSATION, pack, PROMPT, CONFIG, SAO_PAULO, List.of(history),
                 "claude-opus-5-5", lastAttempt);
     }
 

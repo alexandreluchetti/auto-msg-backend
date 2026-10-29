@@ -39,7 +39,7 @@ One small step at a time, each with its tests and its own commit and pull reques
 | Step | Delivery | Acceptance criteria |
 |---|---|---|
 | **H1 — Direction** ✅ | ADR-011/012, decisions D-012..D-017, docs of both repositories | Plan approved; docs consistent |
-| **H2 — Persona** | `persona` block in the restaurant schema; versioned `prompt_template` (segment default + tenant override, draft/published); `tenant_config_version`; persona-aware fixed texts; "never claim to be human" rule | Prompt renders the tenant persona; a published version changes the prompt; tests of the rule |
+| **H2 — Persona** ✅ | `persona` block in the restaurant schema; versioned `prompt_template` (segment default + tenant override, draft/published); `tenant_config_version`; persona-aware fixed texts; "never claim to be human" rule | Prompt renders the tenant persona; a published version changes the prompt; tests of the rule |
 | **H3 — Composition and pace** | `ResponseComposer` (≤ 2 bubbles, list/buttons for real choices); turns in the outbox: typing indicator + bubbles with delays by length | Bubble split and delays deterministic in tests; no thread sleeps; typing payload as in the Cloud API docs |
 | **H4 — Grouping and interruptions** | Per-tenant silence window; cancel pending bubbles of a turn when the customer writes again | A message during "digitando" yields one rebuilt answer, no stale bubble sent |
 | **H5 — Memory** | `customer_profile` (name, last address, latest orders) offered by the assistant; `conversation_summary` for long conversations; retention and erasure cover both | "Mesmo endereço?" offered from the profile; erasure removes the profile |

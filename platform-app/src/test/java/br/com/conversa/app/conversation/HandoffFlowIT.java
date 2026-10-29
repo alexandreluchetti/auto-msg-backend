@@ -5,6 +5,7 @@ import br.com.conversa.app.TestcontainersConfiguration;
 import br.com.conversa.app.inbound.InboundWorker;
 import br.com.conversa.app.outbound.FakeGraphApi;
 import br.com.conversa.app.outbound.SenderWorker;
+import br.com.conversa.app.persona.PersonaTexts;
 import br.com.conversa.app.tenant.TenantChannelService;
 import br.com.conversa.app.tenant.TenantService;
 import br.com.conversa.core.llm.LlmClient;
@@ -197,7 +198,8 @@ class HandoffFlowIT {
         processAll();
 
         assertThat(conversation()).containsEntry("state", "HUMAN").containsEntry("handoff_reason", "REPEATED_FAILURES");
-        assertThat(sentTexts()).containsExactly(AssistantEngine.FALLBACK_TEXT, HandoffService.CUSTOMER_NOTICE);
+        assertThat(sentTexts()).containsExactly(PersonaTexts.fallback(tenantService.effectiveConfig(tenant)),
+                HandoffService.CUSTOMER_NOTICE);
     }
 
     @Test

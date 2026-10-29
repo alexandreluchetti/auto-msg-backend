@@ -20,12 +20,12 @@ class TenantConfigResolverTest {
     @Test
     void packDefaultsFillWhatTheTenantDoesNotSet() {
         JsonNode config = resolver.effectiveConfig(restaurant, """
-                {"business": {"name": "Cantina da Praça"}, "assistant": {"name": "Rita"}}
+                {"business": {"name": "Cantina da Praça"}, "persona": {"name": "Rita"}}
                 """);
 
         assertThat(config.path("business").path("name").asString()).isEqualTo("Cantina da Praça");
-        assertThat(config.path("assistant").path("name").asString()).isEqualTo("Rita");
-        assertThat(config.path("assistant").path("tone").asString()).isEqualTo("friendly");
+        assertThat(config.path("persona").path("name").asString()).isEqualTo("Rita");
+        assertThat(config.path("persona").path("tone").asString()).isEqualTo("friendly");
         assertThat(config.path("handoff").path("pauseMinutes").asInt()).isEqualTo(60);
     }
 
@@ -43,14 +43,14 @@ class TenantConfigResolverTest {
     void rejectsConfigurationOutsideTheSchema() {
         assertThatThrownBy(() -> resolver.effectiveConfig(restaurant, """
                 {"business": {"name": "Cantina"},
-                 "assistant": {"tone": "sarcastic"},
+                 "persona": {"tone": "sarcastic"},
                  "paymentMethods": ["bitcoin"],
                  "staffNumbers": ["12345"],
                  "fulfillment": {"delivery": false, "pickup": false},
                  "loyaltyProgram": true}
                 """))
                 .isInstanceOfSatisfying(InvalidTenantConfigException.class, e -> assertThat(e.errors())
-                        .anySatisfy(error -> assertThat(error).contains("/assistant/tone"))
+                        .anySatisfy(error -> assertThat(error).contains("/persona/tone"))
                         .anySatisfy(error -> assertThat(error).contains("/paymentMethods/0"))
                         .anySatisfy(error -> assertThat(error).contains("/staffNumbers/0"))
                         .anySatisfy(error -> assertThat(error).contains("/fulfillment"))
