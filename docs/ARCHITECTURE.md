@@ -221,6 +221,13 @@ inactivity.
 - Eval: `AssistantEval` runs `eval/restaurant-questions.json` (56 synthetic questions) against the
   real API and a synthetic restaurant, graded by required tools, expected phrases and "no invented
   prices", and writes `target/eval-report.md`. It never runs in the build; running it costs money.
+- Naturalness eval (H10): `NaturalnessEval` runs the multi-turn conversations of
+  `eval/naturalness-conversations.json` (10, two with other personas) through the engine, checks
+  every answer with `NaturalnessRules` (at most 2 messages, no numbered menus, markdown, robotic
+  phrases or claims of being a person) and has `NaturalnessJudge` (an LLM with a fixed rubric) score
+  naturalness, persona, brevity, one question at a time, context and honesty from 1 to 5; it writes
+  `target/naturalness-report.md` and expects no violation and an average of at least 4 per criterion.
+  Like `AssistantEval`, it never runs in the build and costs money.
 
 ### 5.1 Humanized service (ADR-011, planned: roadmap track H)
 

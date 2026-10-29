@@ -249,7 +249,8 @@ class AssistantEval {
         return prices;
     }
 
-    private static BusinessDirectory directory(JsonNode fixture, ZoneId zone) {
+    /** The synthetic restaurant of the fixture, shared with {@link NaturalnessEval}. */
+    static BusinessDirectory directory(JsonNode fixture, ZoneId zone) {
         List<CatalogItem> catalog = new ArrayList<>();
         for (JsonNode item : fixture.path("menu")) {
             List<CatalogOption> options = new ArrayList<>();
@@ -287,7 +288,7 @@ class AssistantEval {
         };
     }
 
-    private static LlmPricing pricing() throws IOException {
+    static LlmPricing pricing() throws IOException {
         var sources = new YamlPropertySourceLoader().load("application", new ClassPathResource("application.yml"));
         return new Binder(ConfigurationPropertySources.from(sources)).bind("conversa.llm", LlmPricing.class).get();
     }
