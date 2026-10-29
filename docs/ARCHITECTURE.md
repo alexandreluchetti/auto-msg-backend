@@ -271,8 +271,11 @@ flowchart LR
   which go to the model with their message for that answer only (never stored). Failed, missing-key
   or too long audio (`conversa.media.max-audio`, 2 min) becomes "[áudio não transcrito]", which the
   prompt turns into a request to write.
-- **Confirmation by text** (D-016): right after the latest summary, a fixed rule recognizes clear
-  confirmations ("pode mandar", "confirmo") as the tap; the LLM never confirms.
+- **Confirmation by text (implemented, H7)** (D-016): right after the latest summary, a fixed rule recognizes clear
+  confirmations ("pode mandar", "confirmo") as the tap; the LLM never confirms. `TextConfirmation`
+  accepts only whole-message agreements (no question, no change such as "sim, mas sem cebola");
+  `OrderService.awaitingConfirmation` takes the latest pending summary with no bot or staff message
+  after it; anything else goes to the assistant, which asks again.
 
 ## 6. Human handoff (coexistence)
 
@@ -281,9 +284,12 @@ See [ADR-008](adr/ADR-008-human-handoff.md).
 - **Triggers:** the customer asks ("falar com atendente"), the `request_human` tool called by
   the LLM, N misunderstandings in a row, a technical error, or an **echo of a message sent from
   the app** (`smb_message_echoes`) — the human started answering, the bot steps aside.
-- **Pause:** `paused_until = now + handoff.pause_minutes` (default 60, renewed on every echo; from
-  track H: until staff hand back, with 4 h without a staff reply as safety net, D-015).
-- **Back to the bot:** the pause expires, or the "hand back to bot" button in the panel.
+- **Pause:** `paused_until = now + handoff.pauseMinutes` (default 240 since H7, renewed on every echo:
+  until staff hand back, with 4 h without a staff reply as safety net, D-015). Staff can also take a
+  conversation over in the panel (`POST /conversations/{id}/takeover`, reason `STAFF_TAKEOVER`), which
+  cancels a turn still being typed. The customer notice follows the persona (`PersonaTexts.handoff`).
+- **Back to the bot:** the pause expires, or the "hand back to bot" button in the panel, after which
+  a customer left waiting is answered at once.
 - **Staff alert:** a card in the panel + a message to the configured staff numbers.
 
 **Implemented (M6):**

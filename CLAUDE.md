@@ -190,11 +190,14 @@ versionados.
 - Transbordo (M6): `HandoffService` (ecos → `HUMAN` com `paused_until`, `asksForPerson`,
   `handOver` com aviso ao cliente e alerta por template aos `staffNumbers`); ferramenta de
   controle `request_human` no `AssistantEngine`; `failure_streak` em `conversation`; retomada
-  na primeira mensagem do cliente após a pausa. Teste ponta a ponta: `HandoffFlowIT`.
+  na primeira mensagem do cliente após a pausa. Teste ponta a ponta: `HandoffFlowIT`. No H7 a pausa
+  padrão é 4 h (D-015), o aviso segue a persona (`PersonaTexts.handoff`), a equipe assume pelo painel
+  (`takeOver`, `STAFF_TAKEOVER`) e, ao devolver, o cliente que esperava é respondido.
 - Pedidos (M7): ferramentas de rascunho em `segment.restaurant.tool.CartTools` (carrinho em
   `ConversationState` → `conversation.context`, preços sempre de `CartPricing`); `start_checkout`
   devolve `CheckoutRequest` → `ReplyWorker` grava `checkout` e envia botões (`confirm:`/`edit:`);
-  só o toque em `confirm:` chama `OrderService.confirm` (sem LLM), que cria `customer_order` uma
+  só o toque em `confirm:` ou um texto claro logo após o resumo (`TextConfirmation` +
+  `OrderService.awaitingConfirmation`, D-016) chama `OrderService.confirm` (sem LLM), que cria `customer_order` uma
   vez. Teste ponta a ponta: `OrderFlowIT`.
 - API do painel (M8): `app.api` — `SecurityConfiguration` (sessão em cookie HttpOnly + CSRF
   para SPA; `/webhooks/**` público), `StaffDirectory` (`staff_user`, função `staff_login`),

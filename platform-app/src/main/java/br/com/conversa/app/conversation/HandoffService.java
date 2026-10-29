@@ -2,9 +2,11 @@ package br.com.conversa.app.conversation;
 
 import br.com.conversa.app.conversation.ConversationRepository.ConversationView;
 import br.com.conversa.app.api.PanelEvent;
+import br.com.conversa.app.compose.TurnCancellation;
 import br.com.conversa.app.ops.OperationsMetrics;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.outbound.OutboundRequest;
+import br.com.conversa.app.persona.PersonaTexts;
 import br.com.conversa.app.privacy.PrivacyService;
 import br.com.conversa.core.tenant.TenantId;
 import br.com.conversa.core.text.SearchText;
@@ -14,23 +16,28 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.MissingNode;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
  * Hands conversations to the restaurant's staff, who answer in the WhatsApp Business app
- * (ADR-008): the bot pauses for {@code handoff.pauseMinutes} of the tenant configuration and takes
+ * (ADR-008, D-015): the bot pauses until staff hand the conversation back in the panel, or after
+ * {@code handoff.pauseMinutes} (default 4 h, renewed by every staff reply) as a safety net, and takes
  * the conversation back on the first customer message after that. Must run inside the tenant's
  * transaction.
  *
  * <ul>
  *   <li>A message staff send from the app (echo) pauses the bot; every new echo renews the pause.</li>
  *   <li>The customer asking for a person, the assistant asking for help ({@code request_human})
- *       or repeated failures pause it too, tell the customer and alert the staff numbers.</li>
+ *       or repeated failures pause it too, tell the customer (in the persona's tone) and alert the
+ *       staff numbers.</li>
+ *   <li>Staff can take a conversation over from the panel ({@link #takeOver}).</li>
  * </ul>
  */
 @Component
@@ -38,8 +45,8 @@ public class HandoffService {
 
     private static final Logger log = LoggerFactory.getLogger(HandoffService.class);
 
-    static final String CUSTOMER_NOTICE = "Certo! Vou chamar alguém da equipe para continuar o seu atendimento "
-            + "por aqui. É só aguardar um pouquinho.";
+    /** The handoff notice in the default (friendly) tone; each business gets its persona's ({@link PersonaTexts#handoff}). */
+    static final String CUSTOMER_NOTICE = PersonaTexts.handoff(MissingNode.getInstance());
 
     /**
      * Customer messages that plainly ask for a person, after normalization ("Quero falar com um
@@ -51,6 +58,8 @@ public class HandoffService {
                     + "|\\s*(?:atendente|atendimento humano|humano|falar com atendente)\\s*(?:por favor|pf|pfv)?\\s*)$");
 
     private static final int MAX_PARAMETER = 60;
+    /** Safety net of D-015: the bot returns after 4 hours without a staff reply. */
+    static final int DEFAULT_PAUSE_MINUTES = 240;
 
     private final ConversationRepository conversations;
     private final OutboundMessageRepository outbound;
@@ -58,12 +67,13 @@ public class HandoffService {
     private final ApplicationEventPublisher events;
     private final PrivacyService privacy;
     private final OperationsMetrics metrics;
+    private final TurnCancellation turns;
     private final ObjectMapper mapper;
     private final Clock clock;
 
     HandoffService(ConversationRepository conversations, OutboundMessageRepository outbound,
                    HandoffProperties properties, ApplicationEventPublisher events, PrivacyService privacy,
-                   OperationsMetrics metrics,
+                   OperationsMetrics metrics, TurnCancellation turns,
                    ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
         this.outbound = outbound;
@@ -71,6 +81,7 @@ public class HandoffService {
         this.events = events;
         this.privacy = privacy;
         this.metrics = metrics;
+        this.turns = turns;
         this.mapper = mapper;
         this.clock = clock;
     }
@@ -98,7 +109,7 @@ public class HandoffService {
     public void handOver(TenantId tenant, ConversationView conversation, String lastCustomerWamid,
                          HandoffReason reason, String detail, JsonNode config) {
         String ref = "handoff:" + conversation.id() + ":" + lastCustomerWamid;
-        String notice = privacy.withNotice(conversation.id(), CUSTOMER_NOTICE, config);
+        String notice = privacy.withNotice(conversation.id(), PersonaTexts.handoff(config), config);
         if (conversations.recordBotMessage(tenant, conversation.id(), ref, notice, clock.instant())) {
             outbound.enqueue("read:" + lastCustomerWamid, tenant, OutboundRequest.readReceipt(
                     conversation.phoneNumberId(), conversation.waId(), lastCustomerWamid, mapper));
@@ -110,6 +121,25 @@ public class HandoffService {
         events.publishEvent(PanelEvent.handoff(tenant, conversation.id()));
         metrics.handoff(tenant, reason.name());
         log.info("Conversation {} handed to staff: {}", conversation.id(), reason);
+    }
+
+    /**
+     * Staff take the conversation over from the panel (D-015): the bot stops at once, including a
+     * turn still being "typed", and stays paused until they hand it back or stop replying for the
+     * safety-net period.
+     *
+     * @return false when the conversation does not exist
+     */
+    public boolean takeOver(TenantId tenant, UUID conversation, JsonNode config) {
+        ConversationView current = conversations.findForUpdate(conversation).orElse(null);
+        if (current == null) {
+            return false;
+        }
+        turns.cancelPending(tenant, conversation, current.phoneNumberId(), current.waId());
+        conversations.pause(conversation, pauseUntil(config), HandoffReason.STAFF_TAKEOVER.name());
+        events.publishEvent(PanelEvent.handoff(tenant, conversation));
+        metrics.handoff(tenant, HandoffReason.STAFF_TAKEOVER.name());
+        return true;
     }
 
     private void alertStaff(TenantId tenant, ConversationView conversation, String ref, HandoffReason reason,
@@ -143,7 +173,7 @@ public class HandoffService {
     }
 
     private Instant pauseUntil(JsonNode config) {
-        int minutes = config.path("handoff").path("pauseMinutes").asInt(60);
+        int minutes = config.path("handoff").path("pauseMinutes").asInt(DEFAULT_PAUSE_MINUTES);
         return clock.instant().plus(Duration.ofMinutes(minutes));
     }
 }

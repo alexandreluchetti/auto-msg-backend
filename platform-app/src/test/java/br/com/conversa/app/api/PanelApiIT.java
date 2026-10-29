@@ -154,6 +154,23 @@ class PanelApiIT {
     }
 
     @Test
+    void staffTakeAConversationOver() throws Exception {
+        UUID conversation = conversation(cantina);
+        MockHttpSession session = login("ana@cantina.test");
+
+        mockMvc.perform(post("/api/v1/conversations/" + UUID.randomUUID() + "/takeover").session(session).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/v1/conversations/" + conversation + "/takeover")
+                        .session(login("bia@burger.test")).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/v1/conversations/" + conversation + "/takeover").session(session).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        assertThat(jdbc.sql("SELECT state || ':' || handoff_reason FROM conversation").query(String.class).single())
+                .isEqualTo("HUMAN:STAFF_TAKEOVER");
+    }
+
+    @Test
     void handsAConversationBackToTheBot() throws Exception {
         UUID conversation = conversation(cantina);
         jdbc.sql("""

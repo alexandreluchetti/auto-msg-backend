@@ -8,6 +8,7 @@ import br.com.conversa.app.conversation.ConversationRepository.StoredMessage;
 import br.com.conversa.app.memory.ConversationSummarizer;
 import br.com.conversa.app.memory.CustomerMemory;
 import br.com.conversa.app.order.OrderService;
+import br.com.conversa.app.order.TextConfirmation;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.persona.PersonaPrompt;
 import br.com.conversa.app.persona.PromptTemplates;
@@ -142,15 +143,16 @@ public class ReplyWorker {
                 return;
             }
             if (tapped != null && tapped.startsWith(OrderService.CONFIRM_PREFIX)) {
-                deliver(claim, lastWamid, current -> {
-                    var confirmation = orders.confirm(tenant, current.id(),
-                            tapped.substring(OrderService.CONFIRM_PREFIX.length()), lastWamid, current.phoneNumberId(),
-                            HandoffService.customerLabel(current), config);
-                    reply(tenant, current, lastWamid, confirmation.customerText(), List.of(), config);
-                    conversations.setFailureStreak(current.id(), 0);
-                    log.info("Confirmation tap in conversation {}: {}", current.id(), confirmation.result());
-                });
+                confirmOrder(claim, lastWamid, tapped.substring(OrderService.CONFIRM_PREFIX.length()), "tap", config);
                 return;
+            }
+            if (tapped == null && TextConfirmation.isClear(history.getLast().text())) {
+                Optional<UUID> awaiting = tenants.inTenant(tenant,
+                        () -> orders.awaitingConfirmation(claim.conversationId()));
+                if (awaiting.isPresent()) {
+                    confirmOrder(claim, lastWamid, awaiting.get().toString(), "text", config);
+                    return;
+                }
             }
             if (HandoffService.asksForPerson(history.getLast().text())) {
                 deliver(claim, lastWamid, current -> handoff.handOver(tenant, current, lastWamid,
@@ -196,6 +198,21 @@ public class ReplyWorker {
                 }
             });
         }
+    }
+
+    /**
+     * Confirms the order of {@code checkoutId} without the LLM: the customer tapped "Confirmar
+     * pedido" or confirmed in clear text right after the summary (D-016).
+     */
+    private void confirmOrder(ClaimedReply claim, String lastWamid, String checkoutId, String how, JsonNode config) {
+        TenantId tenant = claim.tenant();
+        deliver(claim, lastWamid, current -> {
+            var confirmation = orders.confirm(tenant, current.id(), checkoutId, lastWamid, current.phoneNumberId(),
+                    HandoffService.customerLabel(current), config);
+            reply(tenant, current, lastWamid, confirmation.customerText(), List.of(), config);
+            conversations.setFailureStreak(current.id(), 0);
+            log.info("Confirmation by {} in conversation {}: {}", how, current.id(), confirmation.result());
+        });
     }
 
     /** Summary of the earlier conversation and what the business knows about the customer (H5). */

@@ -134,10 +134,18 @@ public class ConversationRepository {
                 .update();
     }
 
-    /** Ends a pause now (the panel's "hand back to bot", M8). */
+    /**
+     * Ends a pause now (the panel's "hand back to bot", D-015). If the customer's latest message is
+     * still unanswered, the bot answers it right away.
+     */
     public void resume(UUID conversation) {
         jdbc.sql("""
-                        UPDATE conversation SET state = 'BOT', paused_until = NULL, failure_streak = 0, updated_at = now()
+                        UPDATE conversation c
+                        SET state = 'BOT', paused_until = NULL, failure_streak = 0, reply_attempts = 0,
+                            reply_due_at = CASE WHEN (SELECT m.author FROM message m WHERE m.conversation_id = c.id
+                                                      ORDER BY m.created_at DESC LIMIT 1) = 'CUSTOMER'
+                                                THEN now() END,
+                            updated_at = now()
                         WHERE id = :id AND state = 'HUMAN'
                         """)
                 .param("id", conversation)

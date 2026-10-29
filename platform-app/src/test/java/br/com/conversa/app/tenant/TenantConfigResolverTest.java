@@ -26,7 +26,7 @@ class TenantConfigResolverTest {
         assertThat(config.path("business").path("name").asString()).isEqualTo("Cantina da Praça");
         assertThat(config.path("persona").path("name").asString()).isEqualTo("Rita");
         assertThat(config.path("persona").path("tone").asString()).isEqualTo("friendly");
-        assertThat(config.path("handoff").path("pauseMinutes").asInt()).isEqualTo(60);
+        assertThat(config.path("handoff").path("pauseMinutes").asInt()).isEqualTo(240);
     }
 
     @Test
