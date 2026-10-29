@@ -1,6 +1,7 @@
 package br.com.conversa.app.tenant;
 
 import br.com.conversa.app.api.StaffDirectory;
+import br.com.conversa.app.api.StaffUser;
 import br.com.conversa.app.business.BusinessDataImporter;
 import br.com.conversa.core.tenant.TenantId;
 import org.slf4j.Logger;
@@ -62,7 +63,8 @@ class TenantBootstrap implements ApplicationRunner {
             log.info("Bootstrap registered a WhatsApp number for tenant {}", properties.slug());
         }
         if (!isBlank(properties.staffEmail())) {
-            staff.upsert(tenant, properties.staffEmail().strip(), properties.staffName(), properties.staffPassword());
+            staff.upsert(tenant, properties.staffEmail().strip(), properties.staffName(), properties.staffPassword(),
+                    StaffUser.ADMIN);
             log.info("Bootstrap set the panel user of tenant {}", properties.slug());
         }
         if (!isBlank(properties.dataDir())) {

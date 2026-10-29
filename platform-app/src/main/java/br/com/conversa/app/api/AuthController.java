@@ -34,10 +34,10 @@ class AuthController {
     record LoginRequest(@NotBlank String email, @NotBlank String password) {
     }
 
-    record Me(String email, String name, String tenantId) {
+    record Me(String email, String name, String tenantId, String role) {
 
         static Me of(StaffUser user) {
-            return new Me(user.getUsername(), user.displayName(), user.tenant().toString());
+            return new Me(user.getUsername(), user.displayName(), user.tenant().toString(), user.role());
         }
     }
 

@@ -32,22 +32,29 @@ public class StaffDirectory implements UserDetailsService {
 
     @Override
     public StaffUser loadUserByUsername(String email) {
-        record Row(UUID id, UUID tenantId, String name, String passwordHash) {
+        record Row(UUID id, UUID tenantId, String name, String passwordHash, String role) {
         }
-        Row row = jdbc.sql("SELECT id, tenant_id, name, password_hash FROM staff_login(:email)")
+        Row row = jdbc.sql("SELECT id, tenant_id, name, password_hash, role FROM staff_login(:email)")
                 .param("email", email)
                 .query(Row.class).optional()
                 .orElseThrow(() -> new UsernameNotFoundException("No active staff user"));
-        return new StaffUser(row.id(), new TenantId(row.tenantId()), email, row.name(), row.passwordHash());
+        return new StaffUser(row.id(), new TenantId(row.tenantId()), email, row.name(), row.passwordHash(), row.role());
     }
 
     /**
      * Creates the staff user, or sets the name and password of the existing one with that e-mail in
-     * the same tenant.
+     * the same tenant, with the {@code STAFF} role.
      *
      * @throws IllegalArgumentException for a short password or an e-mail used by another tenant
      */
     public void upsert(TenantId tenant, String email, String name, String password) {
+        upsert(tenant, email, name, password, "STAFF");
+    }
+
+    /**
+     * Same, with the role ({@code ADMIN} or {@code STAFF}).
+     */
+    public void upsert(TenantId tenant, String email, String name, String password, String role) {
         if (password == null || password.length() < MIN_PASSWORD) {
             throw new IllegalArgumentException("Staff passwords need at least " + MIN_PASSWORD + " characters");
         }
@@ -55,17 +62,19 @@ public class StaffDirectory implements UserDetailsService {
         try {
             tenants.runInTenant(tenant, () -> {
                 int updated = jdbc.sql("""
-                                UPDATE staff_user SET name = :name, password_hash = :hash, active = true, updated_at = now()
+                                UPDATE staff_user SET name = :name, password_hash = :hash, role = :role, active = true,
+                                                      updated_at = now()
                                 WHERE lower(email) = lower(:email)
                                 """)
-                        .param("name", name).param("hash", hash).param("email", email)
+                        .param("name", name).param("hash", hash).param("role", role).param("email", email)
                         .update();
                 if (updated == 0) {
                     jdbc.sql("""
-                                    INSERT INTO staff_user (tenant_id, email, name, password_hash)
-                                    VALUES (:tenant, :email, :name, :hash)
+                                    INSERT INTO staff_user (tenant_id, email, name, password_hash, role)
+                                    VALUES (:tenant, :email, :name, :hash, :role)
                                     """)
                             .param("tenant", tenant.value()).param("email", email).param("name", name).param("hash", hash)
+                            .param("role", role)
                             .update();
                 }
             });

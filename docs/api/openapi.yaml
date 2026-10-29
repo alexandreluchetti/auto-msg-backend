@@ -128,6 +128,33 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+  /api/v1/conversations:
+    get:
+      summary: Latest conversations (simulator excluded)
+      parameters:
+        - { name: state, in: query, schema: { type: string, enum: [BOT, HUMAN] } }
+        - { name: q, in: query, description: Part of the customer name or phone, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: Most recent message first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ConversationSummary' }
+  /api/v1/conversations/{id}:
+    get:
+      summary: A conversation with its latest 100 messages and the pack state (e.g. the cart)
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConversationDetail' }
+          description: The conversation
+        '404': { description: No such conversation for this business }
   /api/v1/conversations/handoffs:
     get:
       summary: Conversations staff are handling now (the bot is paused)
@@ -156,6 +183,99 @@ paths:
         - $ref: '#/components/parameters/Csrf'
       responses:
         '204': { description: The bot is back; a customer left waiting is answered now }
+  /api/v1/settings:
+    get:
+      summary: The business settings (published, draft, effective, defaults, schema and versions)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Settings' }
+          description: Settings
+  /api/v1/settings/draft:
+    put:
+      summary: Replaces the draft with the business own settings (admins only)
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Validated against the pack schema after merging with the defaults }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Saved' }
+          description: Draft saved
+        '403': { description: Not an admin }
+        '422':
+          description: Invalid settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: array, items: { type: string } }
+  /api/v1/settings/publish:
+    post:
+      summary: Makes the draft what WhatsApp uses (admins only)
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Saved' }
+          description: Published version
+        '403': { description: Not an admin }
+        '409':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+          description: No draft to publish
+  /api/v1/simulator/messages:
+    get:
+      summary: The admin simulated conversation so far
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SimulatorLine' }
+          description: Oldest first
+    post:
+      summary: Says something to the assistant as a customer, with the draft settings (admins only)
+      description: |
+        Real model and tools, nothing sent to WhatsApp, no order created. The answer carries the
+        human pace: show "digitando..." at each `typingAtMs` and each bubble at its `atMs`
+        (milliseconds after the customer message).
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string, maxLength: 4096 }
+                replyId: { type: string, description: Id of the tapped button or list row }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SimulatorReply' }
+          description: The assistant answer
+        '403': { description: Not an admin }
+    delete:
+      summary: Starts the simulated conversation over
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      responses:
+        '204': { description: Forgotten }
   /api/v1/events:
     get:
       summary: Live events (Server-Sent Events)
@@ -190,6 +310,7 @@ components:
         email: { type: string }
         name: { type: string }
         tenantId: { type: string, format: uuid }
+        role: { type: string, enum: [ADMIN, STAFF], description: Admins edit settings and use the simulator }
     Error:
       type: object
       properties:
@@ -236,3 +357,77 @@ components:
         handoffAt: { type: string, format: date-time }
         pausedUntil: { type: string, format: date-time }
         lastMessage: { type: [string, 'null'] }
+    ConversationSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        customerName: { type: [string, 'null'] }
+        customerPhone: { type: string }
+        state: { type: string, enum: [BOT, HUMAN] }
+        handoffReason: { type: [string, 'null'] }
+        pausedUntil: { type: [string, 'null'], format: date-time }
+        lastMessage: { type: [string, 'null'] }
+        lastAuthor: { type: [string, 'null'], enum: [CUSTOMER, BOT, STAFF, null] }
+        lastMessageAt: { type: [string, 'null'], format: date-time }
+    ConversationDetail:
+      type: object
+      properties:
+        conversation: { $ref: '#/components/schemas/ConversationSummary' }
+        messages:
+          type: array
+          items:
+            type: object
+            properties:
+              direction: { type: string, enum: [IN, OUT] }
+              author: { type: string, enum: [CUSTOMER, BOT, STAFF] }
+              text: { type: string }
+              sentAt: { type: string, format: date-time }
+        state: { type: object, description: 'The pack conversation state, e.g. {"cart": {...}}' }
+    Settings:
+      type: object
+      properties:
+        published: { type: object }
+        draft: { type: [object, 'null'] }
+        effective: { type: object }
+        defaults: { type: object }
+        schema: { type: object }
+        versions:
+          type: array
+          items:
+            type: object
+            properties:
+              version: { type: integer }
+              status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+              createdAt: { type: string, format: date-time }
+              publishedAt: { type: [string, 'null'], format: date-time }
+    Saved:
+      type: object
+      properties:
+        version: { type: integer }
+    SimulatorLine:
+      type: object
+      properties:
+        author: { type: string, enum: [CUSTOMER, BOT] }
+        text: { type: string }
+        sentAt: { type: string, format: date-time }
+    SimulatorReply:
+      type: object
+      properties:
+        outcome: { type: string, enum: [ANSWERED, CHECKOUT, HANDOFF, REFUSED, FALLBACK, CONFIRMED] }
+        toolsCalled: { type: array, items: { type: string } }
+        typingAtMs: { type: array, items: { type: integer } }
+        bubbles:
+          type: array
+          items:
+            type: object
+            properties:
+              text: { type: string }
+              atMs: { type: integer }
+              asButtons: { type: boolean }
+              choices:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    title: { type: string }

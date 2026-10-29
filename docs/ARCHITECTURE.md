@@ -571,6 +571,14 @@ settings (draft → publish, admin role), runs a WhatsApp-like simulator of the 
 conversations with bot, staff and customer messages and the order in progress, where staff take
 over and hand back.
 
+**Implemented in the API (H8):** staff roles (`staff_user.role`, `ADMIN`/`STAFF`, V16; bootstrap users
+are admins); `GET /settings` (published, draft, effective, defaults, schema, versions), `PUT
+/settings/draft` and `POST /settings/publish` for admins; `/simulator/messages` (admins:
+`SimulatorService` runs the draft persona and template with the real tools and model in a
+conversation flagged `simulated`, one per admin, never sent or listed; order confirmation is
+simulated without creating the order); `GET /conversations` (filters `state`, `q`) and
+`GET /conversations/{id}` (latest 100 messages and the pack state, such as the cart).
+
 Decided: an **orders panel** in the MVP (real-time list via SSE, sound alert, status changes
 that notify the customer) + **a WhatsApp message to staff**. Human service happens **in the
 WhatsApp Business app** (coexistence). A conversations panel and knowledge base editor are left

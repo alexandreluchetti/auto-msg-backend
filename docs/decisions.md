@@ -181,7 +181,8 @@ kept. Images are read by the assistant. This moves voice transcription out of ph
 - Persona and human-pace settings are edited by panel users with the admin role; staff see
   conversations and orders and take over or hand back. The base prompt template is versioned by
   the platform, not edited in the panel. The simulator uses the real LLM (its cost is recorded for
-  the business) and never sends WhatsApp messages.
+  the business) and never sends WhatsApp messages. It answers each message synchronously with
+  the planned pace (`atMs`, `typingAtMs`), which the panel plays back; no extra event stream.
 - Customer memory: preferred name, last address and neighborhood and the latest 3 orders, kept
   under retention, erased on request, and mentioned in the privacy notice.
 - Messages outside opening hours use the registered opening hours, with a configurable message;

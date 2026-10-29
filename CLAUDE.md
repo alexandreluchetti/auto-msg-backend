@@ -204,7 +204,11 @@ versionados.
   `AuthController`, `OrdersController` → `OrderBoard` (status e aviso ao cliente),
   `ConversationsController` (transbordos, devolver ao bot), `EventsController` →
   `PanelEventStream` (SSE após commit). Contrato: [`docs/api/openapi.yaml`](docs/api/openapi.yaml)
-  — mantenha-o em dia ao mudar a API. Testes: `PanelApiIT`, `PanelEventsIT`. Nos testes MockMvc,
+  — mantenha-o em dia ao mudar a API. Testes: `PanelApiIT`, `PanelEventsIT`. H8: papéis
+  (`StaffUser.role`, `ADMIN` edita configurações e usa o simulador), `SettingsController`
+  (rascunho/publicação), `SimulatorController` → `app.simulator.SimulatorService` (conversa
+  `simulated`, nunca enviada nem listada), lista e detalhe em `ConversationsController`; teste
+  `SettingsSimulatorIT`. Nos testes MockMvc,
   POSTs autenticados precisam de `.with(csrf())`.
 - LGPD e operação (M9): `app.privacy` — `PrivacyService` (aviso na primeira resposta, pedido
   "apagar meus dados" com confirmação por botão, anonimização em duas fases: dados agora, filas
