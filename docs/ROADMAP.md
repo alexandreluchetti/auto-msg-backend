@@ -47,7 +47,7 @@ One small step at a time, each with its tests and its own commit and pull reques
 | **H7 — Natural handoff** ✅ | Persona-aware handoff text; pause until staff hand back or 4 h without a staff reply; takeover from the panel; confirmation by clear text (D-016) | Bot silent until hand-back; safety net returns it; "pode mandar" after the summary creates the order once |
 | **H8 — Settings API and simulator** ✅ | `/settings/*` (draft, publish, versions), `/simulator/*` (SSE, no WhatsApp), `/conversations` list and detail; OpenAPI | Simulator answers with the draft persona and real tools; published version used by WhatsApp |
 | **H9 — Panel** | Persona with preview, human-pace settings, simulator, conversations (bot/staff distinction, take over / hand back, order in progress); admin role | Component tests per screen; build green |
-| **H10 — Evaluation** | Multi-turn eval conversations with an LLM-judge rubric for naturalness plus the accuracy checks | Runs on demand against the real API (with approval); report per criterion |
+| **H10 — Evaluation** ✅ | Multi-turn eval conversations with an LLM-judge rubric for naturalness plus the accuracy checks | Runs on demand against the real API (with approval); report per criterion (built; first real run pending approval) |
 
 **Decision point after the pilot:** table reservations (simple request vs. with capacity). The
 restaurant pack would gain reservation tools (no YAML flows since ADR-011).

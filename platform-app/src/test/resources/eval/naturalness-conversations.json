@@ -1,0 +1,27 @@
+{
+  "_comment": "Multi-turn conversations for the naturalness eval (ROADMAP H10), against restaurant-fixture.json. Each customer turn is answered live by the assistant; the whole transcript is then scored by the LLM judge (NaturalnessJudge.RUBRIC) and every answer is checked by NaturalnessRules. persona overrides the fixture persona for that conversation. minimum: lowest acceptable judge score per criterion for that conversation (default 4). Replace or extend with anonymized pilot conversations.",
+  "conversations": [
+    {"id": "nat-01", "title": "Pedido completo, cliente objetivo",
+     "turns": ["Boa noite! Queria uma pizza de calabresa grande", "Pra entrega, Rua das Flores 45, Centro", "Vou pagar no pix"]},
+    {"id": "nat-02", "title": "Várias coisas de uma vez e mudança de ideia",
+     "turns": ["oi quero 2 x-bacon e uma coca lata", "ah, troca um x-bacon por x-salada", "vou buscar aí mesmo"]},
+    {"id": "nat-03", "title": "Cliente pergunta se está falando com um robô",
+     "turns": ["Oi, tô falando com uma pessoa ou com robô?", "ah tá, e vocês abrem amanhã?"]},
+    {"id": "nat-04", "title": "Reclamação de atraso",
+     "turns": ["Pedi faz uma hora e até agora nada!!", "Pedido 12, no nome da Carla"]},
+    {"id": "nat-05", "title": "Conversa solta e elogio",
+     "turns": ["Kkkk a pizza de ontem tava muito boa", "Vocês tem sobremesa?", "Valeu, depois eu peço"]},
+    {"id": "nat-06", "title": "Bairro que não é atendido",
+     "turns": ["Vocês entregam no Jardim Paulista?", "Que pena. E se eu buscar, demora quanto?"]},
+    {"id": "nat-07", "title": "Persona formal",
+     "persona": {"name": "Helena", "tone": "formal", "formality": 5, "emojis": "none"},
+     "turns": ["Boa tarde. Gostaria de saber o horário de funcionamento.", "E aceitam cartão?"]},
+    {"id": "nat-08", "title": "Persona descontraída com expressões",
+     "persona": {"name": "Tati", "tone": "casual", "formality": 1, "emojis": "moderate", "expressions": ["Opa!", "Bora!"]},
+     "turns": ["eae, tem batata frita?", "manda uma porção então, pra retirar"]},
+    {"id": "nat-09", "title": "Pergunta fora do assunto",
+     "turns": ["Me ajuda a fazer meu trabalho de história?", "Tá bom, então quanto tá a margherita?"]},
+    {"id": "nat-10", "title": "Cliente indeciso pedindo sugestão",
+     "turns": ["Não sei o que pedir hoje, o que vocês recomendam?", "Gostei, quanto fica a de frango grande?"]}
+  ]
+}

@@ -238,6 +238,11 @@ versionados.
   custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
   (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);
   relatório em `platform-app/target/eval-report.md`.
+- Eval de naturalidade (H10): `NaturalnessEval` (`eval/naturalness-conversations.json`, conversas
+  multi-turno) também chama a **API real** (respostas e juiz `NaturalnessJudge`) e só roda com aprovação:
+  `-Dtest=NaturalnessEval -Deval=true` (opções `-Deval.judgeModel`, `-Deval.only`); regras fixas em
+  `NaturalnessRules`; relatório em `platform-app/target/naturalness-report.md`. As partes offline são
+  testadas em `NaturalnessCheckTest`.
 - Fronteiras de módulos: `ArchitectureTest`.
 - SPIs do núcleo: `SegmentPack`, `Tool`, `ToolInvocation`, `ToolResult` em `platform-core`.
 - Segment Pack de restaurante: `RestaurantSegmentPack`; fiação em `PlatformConfiguration`.
