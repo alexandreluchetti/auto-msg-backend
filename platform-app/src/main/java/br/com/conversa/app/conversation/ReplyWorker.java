@@ -17,6 +17,7 @@ import br.com.conversa.app.tenant.TenantService;
 import br.com.conversa.app.tenant.TenantTransactions;
 import br.com.conversa.core.business.BusinessDirectory;
 import br.com.conversa.core.channel.OutboundMessage;
+import br.com.conversa.core.llm.LlmContent;
 import br.com.conversa.core.llm.LlmException;
 import br.com.conversa.core.order.CheckoutRequest;
 import br.com.conversa.core.segment.SegmentPack;
@@ -31,6 +32,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -65,6 +67,7 @@ public class ReplyWorker {
     private final TurnSender turns;
     private final ConversationSummarizer summarizer;
     private final CustomerMemory customers;
+    private final MediaInbox media;
     private final TransactionTemplate transactions;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -74,7 +77,7 @@ public class ReplyWorker {
                 AssistantProperties properties, AnthropicProperties anthropic, HandoffService handoff,
                 HandoffProperties handoffProperties, OrderService orders, PrivacyService privacy,
                 PromptTemplates prompts,
-                TurnSender turns, ConversationSummarizer summarizer, CustomerMemory customers,
+                TurnSender turns, ConversationSummarizer summarizer, CustomerMemory customers, MediaInbox media,
                 TransactionTemplate transactions,
                 ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
@@ -93,6 +96,7 @@ public class ReplyWorker {
         this.turns = turns;
         this.summarizer = summarizer;
         this.customers = customers;
+        this.media = media;
         this.transactions = transactions;
         this.mapper = mapper;
         this.clock = clock;
@@ -115,6 +119,8 @@ public class ReplyWorker {
         try {
             ConversationView conversation = tenants.inTenant(tenant, () -> conversations.find(claim.conversationId()))
                     .orElse(null);
+            Map<String, LlmContent.Image> images = conversation != null && "BOT".equals(conversation.state())
+                    ? media.prepare(tenant, claim.conversationId(), conversation.phoneNumberId()) : Map.of();
             List<StoredMessage> history = tenants.inTenant(tenant,
                     () -> conversations.recentMessages(claim.conversationId(), properties.historyMessages()));
             if (conversation == null || !"BOT".equals(conversation.state())
@@ -155,7 +161,7 @@ public class ReplyWorker {
             String prompt = PersonaPrompt.render(prompts.template(tenant, pack, PromptTemplates.Status.PUBLISHED), config);
             var answer = engine.answer(new AssistantEngine.Turn(tenant, claim.conversationId(), pack, prompt,
                     config.toString(), directory.openingHours(tenant).zone(), history, anthropic.defaultModel(),
-                    claim.attempts() >= properties.maxAttempts(), memory(tenant, claim.conversationId())));
+                    claim.attempts() >= properties.maxAttempts(), memory(tenant, claim.conversationId()), images));
             int failures = answer.outcome() == AssistantEngine.Outcome.FALLBACK ? conversation.failureStreak() + 1 : 0;
             if (answer.outcome() == AssistantEngine.Outcome.HANDOFF || failures >= handoffProperties.failureThreshold()) {
                 HandoffReason reason = answer.outcome() == AssistantEngine.Outcome.HANDOFF

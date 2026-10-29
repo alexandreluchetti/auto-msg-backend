@@ -1,6 +1,7 @@
 package br.com.conversa.channel.whatsapp.send;
 
 import br.com.conversa.core.channel.ChannelGateway;
+import br.com.conversa.core.channel.MediaContent;
 import br.com.conversa.core.channel.OutboundMessage;
 import br.com.conversa.core.channel.SendResult;
 import tools.jackson.core.JacksonException;
@@ -16,6 +17,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
@@ -110,6 +112,42 @@ public final class WhatsAppCloudApiGateway implements ChannelGateway {
         body.put("message_id", messageId);
         body.putObject("typing_indicator").put("type", "text");
         return post(senderId, body);
+    }
+
+    /**
+     * Two calls of the Cloud API: the media id gives a short-lived URL, which is fetched with the same
+     * token. Size is checked on the metadata and on the body.
+     */
+    @Override
+    public Optional<MediaContent> download(String senderId, String mediaId, long maxBytes) {
+        String accessToken = accessTokenForSender.apply(senderId);
+        if (accessToken == null || accessToken.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            HttpResponse<String> meta = http.send(HttpRequest.newBuilder(URI.create(messagesUrlPrefix + mediaId))
+                    .timeout(REQUEST_TIMEOUT).header("Authorization", "Bearer " + accessToken).GET().build(),
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            JsonNode info = readOrMissing(meta.body());
+            if (meta.statusCode() / 100 != 2 || !info.path("url").isString()
+                    || info.path("file_size").asLong(0) > maxBytes) {
+                return Optional.empty();
+            }
+            HttpResponse<byte[]> file = http.send(HttpRequest.newBuilder(URI.create(info.path("url").asString()))
+                    .timeout(REQUEST_TIMEOUT).header("Authorization", "Bearer " + accessToken).GET().build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+            if (file.statusCode() / 100 != 2 || file.body().length == 0 || file.body().length > maxBytes) {
+                return Optional.empty();
+            }
+            String mime = info.path("mime_type").asString(file.headers().firstValue("Content-Type")
+                    .orElse("application/octet-stream"));
+            return Optional.of(new MediaContent(file.body(), mime));
+        } catch (IOException | IllegalArgumentException e) {
+            return Optional.empty();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Optional.empty();
+        }
     }
 
     private ObjectNode base() {

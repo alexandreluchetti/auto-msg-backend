@@ -109,6 +109,8 @@ class InboundEventProcessor {
                     message.path("type").asString(), CustomerText.of(message), CustomerText.replyId(message), sentAt,
                     answer ? groupingWindow(event) : null);
             if (recorded.isNew()) {
+                CustomerText.media(message).ifPresent(media -> conversations.attachMedia(recorded.conversationId(),
+                        message.path("id").asString(), media.id(), media.mimeType(), "audio".equals(media.kind())));
                 turns.cancelPending(event.tenantId(), recorded.conversationId(), event.phoneNumberId(), event.waId());
             }
         });

@@ -3,6 +3,7 @@ package br.com.conversa.app.config;
 import br.com.conversa.app.conversation.AssistantProperties;
 import br.com.conversa.app.conversation.HandoffProperties;
 import br.com.conversa.app.conversation.LlmPricing;
+import br.com.conversa.app.conversation.MediaProperties;
 import br.com.conversa.app.order.OrderProperties;
 import br.com.conversa.app.tenant.BootstrapProperties;
 import br.com.conversa.app.tenant.TenantService;
@@ -11,10 +12,13 @@ import br.com.conversa.core.business.BusinessDirectory;
 import br.com.conversa.core.conversation.ConversationState;
 import br.com.conversa.core.llm.LlmClient;
 import br.com.conversa.core.segment.SegmentPack;
+import br.com.conversa.core.speech.SpeechToText;
 import br.com.conversa.core.tenant.TenantSettings;
 import br.com.conversa.llm.anthropic.AnthropicLlmClient;
 import br.com.conversa.llm.anthropic.AnthropicProperties;
 import br.com.conversa.segment.restaurant.RestaurantSegmentPack;
+import br.com.conversa.speech.openai.OpenAiSpeechProperties;
+import br.com.conversa.speech.openai.OpenAiSpeechToText;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -27,12 +31,18 @@ import java.time.Clock;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({WhatsAppProperties.class, AnthropicProperties.class, BootstrapProperties.class,
-        AssistantProperties.class, LlmPricing.class, HandoffProperties.class, OrderProperties.class})
+        AssistantProperties.class, LlmPricing.class, HandoffProperties.class, OrderProperties.class,
+        OpenAiSpeechProperties.class, MediaProperties.class})
 class PlatformConfiguration {
 
     @Bean
     LlmClient llmClient(AnthropicProperties properties) {
         return new AnthropicLlmClient(properties);
+    }
+
+    @Bean
+    SpeechToText speechToText(OpenAiSpeechProperties properties) {
+        return new OpenAiSpeechToText(properties);
     }
 
     /** Lazy, because tenant settings depend on the pack registry, which holds the packs. */

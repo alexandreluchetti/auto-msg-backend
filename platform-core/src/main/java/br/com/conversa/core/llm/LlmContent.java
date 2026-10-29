@@ -12,6 +12,14 @@ public sealed interface LlmContent {
     record ToolCall(String id, String name, String inputJson) implements LlmContent {
     }
 
+    /**
+     * An image the customer sent, for this request only (never stored).
+     *
+     * @param mediaType e.g. {@code image/jpeg}
+     */
+    record Image(String mediaType, byte[] data) implements LlmContent {
+    }
+
     /** Result of a {@link ToolCall}, sent back in the next user message. */
     record ToolOutcome(String toolCallId, String contentJson, boolean error) implements LlmContent {
     }

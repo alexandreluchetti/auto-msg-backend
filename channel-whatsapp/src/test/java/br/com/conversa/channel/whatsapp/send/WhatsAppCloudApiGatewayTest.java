@@ -35,6 +35,28 @@ class WhatsAppCloudApiGatewayTest {
     }
 
     @Test
+    void downloadsCustomerMediaWithTheSendersToken() {
+        graph.media("MEDIA1", "audio/ogg; codecs=opus", new byte[]{7, 8, 9});
+
+        var content = gateway.download(PHONE_NUMBER_ID, "MEDIA1", 1_000);
+
+        assertThat(content).get().satisfies(media -> {
+            assertThat(media.bytes()).containsExactly(7, 8, 9);
+            assertThat(media.mimeType()).isEqualTo("audio/ogg; codecs=opus");
+        });
+        assertThat(graph.requests()).extracting(FakeGraphApi.Request::path).containsExactly("/v24.0/MEDIA1");
+    }
+
+    @Test
+    void mediaTooLargeOrMissingIsNotDownloaded() {
+        graph.media("MEDIA1", "image/jpeg", new byte[2_000]);
+
+        assertThat(gateway.download(PHONE_NUMBER_ID, "MEDIA1", 1_000)).isEmpty();
+        assertThat(gateway.download(PHONE_NUMBER_ID, "UNKNOWN", 1_000)).isEmpty();
+        assertThat(gatewayWithToken(" ").download(PHONE_NUMBER_ID, "MEDIA1", 10_000)).isEmpty();
+    }
+
+    @Test
     void sendsTextMessageAndReturnsWamid() {
         SendResult result = gateway.send(PHONE_NUMBER_ID, new OutboundMessage.Text(CUSTOMER, "Olá!"));
 

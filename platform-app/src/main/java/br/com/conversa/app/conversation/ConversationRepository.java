@@ -99,6 +99,21 @@ public class ConversationRepository {
                 insertMessage(tenant, conversation, "echo:" + wamid, "OUT", "STAFF", wamid, type, text, null, sentAt));
     }
 
+    /**
+     * Remembers the media of a customer message for the reply worker (H6). Voice notes are marked
+     * pending until transcribed; images are read again for each answer attempt, never stored.
+     */
+    public void attachMedia(UUID conversation, String wamid, String mediaId, String mimeType, boolean transcribe) {
+        jdbc.sql("""
+                        UPDATE message SET media_id = :mediaId, media_mime = :mime,
+                                           media_status = CASE WHEN :transcribe THEN 'PENDING' END
+                        WHERE conversation_id = :conversation AND ref = :ref
+                        """)
+                .param("mediaId", mediaId).param("mime", mimeType).param("transcribe", transcribe)
+                .param("conversation", conversation).param("ref", "msg:" + wamid)
+                .update();
+    }
+
     public record StaffEcho(UUID conversationId, boolean isNew) {
     }
 

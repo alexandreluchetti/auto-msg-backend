@@ -73,6 +73,19 @@ class AnthropicLlmClientTest {
     }
 
     @Test
+    void sendsCustomerImagesAsBase64Blocks() {
+        client(true).complete(new LlmRequest("claude-opus-5-5", "low", 2048, "Você é a assistente.", tools(),
+                List.of(new LlmMessage(LlmMessage.Role.USER, List.of(new LlmContent.Text("[imagem] tem esse?"),
+                        new LlmContent.Image("image/jpeg", new byte[]{1, 2, 3}))))));
+
+        JsonNode image = bodies.getFirst().path("messages").path(0).path("content").path(1);
+        assertThat(image.path("type").asText()).isEqualTo("image");
+        assertThat(image.path("source").path("type").asText()).isEqualTo("base64");
+        assertThat(image.path("source").path("media_type").asText()).isEqualTo("image/jpeg");
+        assertThat(image.path("source").path("data").asText()).isEqualTo("AQID");
+    }
+
+    @Test
     void sendsCachedSystemToolsEffortAndRefusalFallback() {
         client(true).complete(request("claude-opus-5-5"));
 

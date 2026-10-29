@@ -84,6 +84,7 @@ flowchart LR
 | `platform-core` | Domain kernel: tenant/conversation types, **SPIs** (`SegmentPack`, `Tool`, `LlmClient`, `ChannelGateway`). No Spring Web, no JPA. | JDK |
 | `channel-whatsapp` | Cloud API adapter: webhook verification, `X-Hub-Signature-256` signature, payload parsing, sending (text, interactive, template, media), statuses. | `platform-core` |
 | `llm-anthropic` | `LlmClient` implementation with the official SDK `com.anthropic:anthropic-java`. | `platform-core` |
+| `stt-openai` | `SpeechToText` implementation with the OpenAI transcription API (ADR-012). | `platform-core` |
 | `segment-restaurant` | Restaurant Segment Pack: tools (menu, delivery fee, cart), flows (checkout), prompts, configuration schema. | `platform-core` |
 | `platform-app` | Spring Boot: wiring, persistence (JPA + Flyway), queues, workers, panel REST/SSE API, security, observability. | all |
 
@@ -262,8 +263,14 @@ flowchart LR
   address from the contact and its orders (no separate profile table), and both go to the model in the
   turn context; this replaces the planned `customer_profile`, which would have kept the preferred name, last
   address/neighborhood and latest orders, under retention and erasure.
-- **Media.** Images are sent to Claude; audio is transcribed through the `SpeechToText` port
+- **Media (implemented, H6).** Images are sent to Claude; audio is transcribed through the `SpeechToText` port
   (`stt-openai`, ADR-012) and stored as text. Failures ask the customer to write or hand over.
+  The inbound processor stores the Cloud API media id (`message.media_id`, V14); before each answer
+  `MediaInbox` downloads pending voice notes, transcribes them once ("[áudio] <texto>", cost in
+  `llm_call` with `stop_reason = TRANSCRIPTION`) and downloads the images sent since the last answer,
+  which go to the model with their message for that answer only (never stored). Failed, missing-key
+  or too long audio (`conversa.media.max-audio`, 2 min) becomes "[áudio não transcrito]", which the
+  prompt turns into a request to write.
 - **Confirmation by text** (D-016): right after the latest summary, a fixed rule recognizes clear
   confirmations ("pode mandar", "confirmo") as the tap; the LLM never confirms.
 
