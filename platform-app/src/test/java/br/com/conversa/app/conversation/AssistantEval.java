@@ -122,7 +122,7 @@ class AssistantEval {
                         cost[0] = cost[0].add(pricing.cost(response.model(), response.usage())),
                 new ToolInputValidator(mapper),
                 new AssistantProperties(true, Duration.ZERO, effort, 4096, 4, 30, Duration.ofMinutes(2), 1, Duration.ZERO,
-                        1),
+                        1, "claude-haiku-5-5"),
                 mapper, clock);
 
         Set<String> realPrices = realPrices(fixture);
@@ -142,7 +142,7 @@ class AssistantEval {
             BigDecimal before = cost[0];
             String prompt = PersonaPrompt.render(pack.defaultPromptTemplate(), mapper.readTree(turnConfig));
             var answer = engine.answer(new AssistantEngine.Turn(TENANT, UUID.randomUUID(), pack, prompt, turnConfig, zone,
-                    history, model, true));
+                    history, model, true, AssistantEngine.Memory.NONE));
             results.add(grade(question, answer, realPrices, cost[0].subtract(before)));
             System.out.printf("%-12s %s%n", id, results.getLast().passed() ? "PASS" : "FAIL " + results.getLast().failures());
         }

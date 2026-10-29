@@ -75,6 +75,11 @@ public class RetentionJob {
                         DELETE FROM message WHERE tenant_id = :tenant AND created_at < now() - make_interval(days => :days)
                         """)
                 .param("tenant", tenant.value()).param("days", days).update();
+        jdbc.sql("""
+                        DELETE FROM conversation_summary
+                        WHERE tenant_id = :tenant AND updated_at < now() - make_interval(days => :days)
+                        """)
+                .param("tenant", tenant.value()).param("days", days).update();
         int orders = jdbc.sql("""
                         UPDATE customer_order SET address = NULL, change_for = NULL, updated_at = now()
                         WHERE tenant_id = :tenant AND created_at < now() - make_interval(days => :days)

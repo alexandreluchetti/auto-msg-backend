@@ -44,7 +44,7 @@ class AssistantEngineTest {
                     recorded.add(requestedModel + "/" + effort + "/" + response.stopReason()),
             new ToolInputValidator(mapper),
             new AssistantProperties(true, Duration.ofSeconds(2), "low", 4096, 2, 30, Duration.ofMinutes(2), 3,
-                    Duration.ZERO, 0),
+                    Duration.ZERO, 0, "claude-haiku-5-5"),
             mapper, clock);
 
     private final Tool menu = new Tool() {
@@ -198,7 +198,7 @@ class AssistantEngineTest {
 
         engine.answer(new AssistantEngine.Turn(TENANT, CONVERSATION, pack, PROMPT,
                 "{\"llm\": {\"model\": \"claude-haiku-5-5\", \"effort\": \"medium\"}}", SAO_PAULO,
-                List.of(customer("Oi")), "claude-opus-5-5", false));
+                List.of(customer("Oi")), "claude-opus-5-5", false, AssistantEngine.Memory.NONE));
 
         assertThat(llm.requests().getFirst().model()).isEqualTo("claude-haiku-5-5");
         assertThat(llm.requests().getFirst().effort()).isEqualTo("medium");
@@ -265,7 +265,7 @@ class AssistantEngineTest {
         llm.then(ScriptedLlm.toolCall("t1", "start_checkout", "{}"));
 
         var answer = engine.answer(new AssistantEngine.Turn(TENANT, CONVERSATION, withCheckout, PROMPT, CONFIG,
-                SAO_PAULO, List.of(customer("Pode fechar")), "claude-opus-5-5", false));
+                SAO_PAULO, List.of(customer("Pode fechar")), "claude-opus-5-5", false, AssistantEngine.Memory.NONE));
 
         assertThat(answer.outcome()).isEqualTo(AssistantEngine.Outcome.CHECKOUT);
         assertThat(answer.text()).isEqualTo("*Resumo do pedido*");
@@ -282,6 +282,22 @@ class AssistantEngineTest {
 
         assertThat(llm.requests().getFirst().messages().get(1).content())
                 .containsExactly(new LlmContent.Text("[Mensagem da equipe do restaurante] Oi, aqui é a Ana"));
+    }
+
+    @Test
+    void theSummaryOpensTheHistoryAndTheCustomerMemoryJoinsTheContext() {
+        llm.then(ScriptedLlm.text("Oi, Ana!"));
+
+        engine.answer(new AssistantEngine.Turn(TENANT, CONVERSATION, pack, PROMPT, CONFIG, SAO_PAULO,
+                List.of(customer("Oi"), bot("Olá!"), customer("Quero o de sempre")), "claude-opus-5-5", false,
+                new AssistantEngine.Memory("Cliente pediu calabresa ontem.", "Nome do cliente no WhatsApp: Ana.")));
+
+        List<LlmMessage> messages = llm.requests().getFirst().messages();
+        assertThat(messages.getFirst().content().getFirst())
+                .isEqualTo(new LlmContent.Text("[Resumo do começo desta conversa: Cliente pediu calabresa ontem.]"));
+        assertThat(messages.getLast().content().getFirst()).isEqualTo(new LlmContent.Text(
+                "[Contexto do sistema: agora é quarta-feira, 28/10/2026, 20:05, no horário do restaurante. "
+                        + "Nome do cliente no WhatsApp: Ana.]"));
     }
 
     @Test
@@ -305,7 +321,7 @@ class AssistantEngineTest {
 
     private AssistantEngine.Turn turn(boolean lastAttempt, StoredMessage... history) {
         return new AssistantEngine.Turn(TENANT, CONVERSATION, pack, PROMPT, CONFIG, SAO_PAULO, List.of(history),
-                "claude-opus-5-5", lastAttempt);
+                "claude-opus-5-5", lastAttempt, AssistantEngine.Memory.NONE);
     }
 
     private static StoredMessage customer(String text) {
