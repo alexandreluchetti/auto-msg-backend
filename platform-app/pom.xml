@@ -29,6 +29,10 @@
         </dependency>
         <dependency>
             <groupId>br.com.conversa</groupId>
+            <artifactId>stt-openai</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>br.com.conversa</groupId>
             <artifactId>segment-restaurant</artifactId>
         </dependency>
 

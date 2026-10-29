@@ -18,24 +18,34 @@ class ArchitectureTest {
             .that().resideInAPackage("br.com.conversa.core..")
             .should().dependOnClassesThat().resideInAnyPackage(
                     "org.springframework..", "jakarta.persistence..",
-                    "br.com.conversa.channel..", "br.com.conversa.llm..",
+                    "br.com.conversa.channel..", "br.com.conversa.llm..", "br.com.conversa.speech..",
                     "br.com.conversa.segment..", "br.com.conversa.app..");
 
     @ArchTest
     static final ArchRule segmentsDependOnlyOnCore = noClasses()
             .that().resideInAPackage("br.com.conversa.segment..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "br.com.conversa.channel..", "br.com.conversa.llm..", "br.com.conversa.app..");
+                    "br.com.conversa.channel..", "br.com.conversa.llm..", "br.com.conversa.speech..",
+                    "br.com.conversa.app..");
 
     @ArchTest
     static final ArchRule channelsDoNotKnowLlmOrSegments = noClasses()
             .that().resideInAPackage("br.com.conversa.channel..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "br.com.conversa.llm..", "br.com.conversa.segment..", "br.com.conversa.app..");
+                    "br.com.conversa.llm..", "br.com.conversa.speech..", "br.com.conversa.segment..",
+                    "br.com.conversa.app..");
 
     @ArchTest
     static final ArchRule llmDoesNotKnowChannelsOrSegments = noClasses()
             .that().resideInAPackage("br.com.conversa.llm..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "br.com.conversa.channel..", "br.com.conversa.segment..", "br.com.conversa.app..");
+                    "br.com.conversa.channel..", "br.com.conversa.speech..", "br.com.conversa.segment..",
+                    "br.com.conversa.app..");
+
+    @ArchTest
+    static final ArchRule speechDoesNotKnowOtherModules = noClasses()
+            .that().resideInAPackage("br.com.conversa.speech..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "br.com.conversa.channel..", "br.com.conversa.llm..", "br.com.conversa.segment..",
+                    "br.com.conversa.app..");
 }

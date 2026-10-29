@@ -5,6 +5,7 @@ COPY pom.xml .
 COPY platform-core/pom.xml platform-core/
 COPY channel-whatsapp/pom.xml channel-whatsapp/
 COPY llm-anthropic/pom.xml llm-anthropic/
+COPY stt-openai/pom.xml stt-openai/
 COPY segment-restaurant/pom.xml segment-restaurant/
 COPY platform-app/pom.xml platform-app/
 RUN mvn -B -q dependency:go-offline -DexcludeReactor=true || true

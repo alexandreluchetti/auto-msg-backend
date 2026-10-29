@@ -2,6 +2,8 @@ package br.com.conversa.app.inbound;
 
 import tools.jackson.databind.JsonNode;
 
+import java.util.Optional;
+
 /**
  * What a customer message says, as text for the history. Media the bot cannot read become a
  * marker the assistant prompt knows ("[áudio]"), so it asks the customer to type.
@@ -43,6 +45,21 @@ final class CustomerText {
             }
         }
         return null;
+    }
+
+    /** A voice note or image the reply worker should download (H6), with its Cloud API id. */
+    record Media(String kind, String id, String mimeType) {
+    }
+
+    static Optional<Media> media(JsonNode message) {
+        String type = message.path("type").asString();
+        if (!"audio".equals(type) && !"image".equals(type)) {
+            return Optional.empty();
+        }
+        JsonNode media = message.path(type);
+        return media.path("id").isString()
+                ? Optional.of(new Media(type, media.path("id").asString(), media.path("mime_type").asString("")))
+                : Optional.empty();
     }
 
     private static String withCaption(String marker, JsonNode media) {

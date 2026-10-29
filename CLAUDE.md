@@ -55,6 +55,7 @@ Monólito modular (ADR-007), pacote base `br.com.conversa`:
 | `platform-core` | `core` | Tipos de domínio e SPIs (`SegmentPack`, `Tool`, `LlmClient`...). **Java puro.** |
 | `channel-whatsapp` | `channel.whatsapp` | Adaptador Cloud API: webhook, assinatura, parsing, envio, status. |
 | `llm-anthropic` | `llm.anthropic` | Adaptador Claude da porta `LlmClient`. |
+| `stt-openai` | `speech.openai` | Adaptador OpenAI da porta `SpeechToText` (transcrição de áudio, ADR-012). |
 | `segment-restaurant` | `segment.restaurant` | Segment Pack de restaurante: ferramentas, fluxos, prompts, schema. |
 | `platform-app` | `app` | Spring Boot: composição, JPA/Flyway, filas, workers, API REST/SSE. |
 
@@ -222,6 +223,10 @@ versionados.
 - Memória (H5): `app.memory` — `CustomerMemory` (nome, últimos pedidos e endereço lidos do contato e
   dos pedidos, sem tabela de perfil) e `ConversationSummarizer` (`conversation_summary`, modelo
   `conversa.assistant.summary-model`); entram em `AssistantEngine.Memory`. Teste: `MemoryIT`.
+- Mídia (H6): `MediaInbox` (antes de cada resposta transcreve áudios pendentes pela porta `SpeechToText` e baixa as
+  imagens desde a última resposta por `ChannelGateway.download`; nada de mídia é guardado), `MediaProperties`
+  (`conversa.media.*`), módulo `stt-openai` (`OPENAI_API_KEY`). Nos testes a transcrição é falsa (nunca a API real)
+  e a `FakeGraphApi` serve mídia com `media(id, mime, bytes)`. Teste: `MediaIT`.
 - Eval do M5: `AssistantEval` (`eval/restaurant-questions.json`) chama a **API real e gera
   custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
   (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);

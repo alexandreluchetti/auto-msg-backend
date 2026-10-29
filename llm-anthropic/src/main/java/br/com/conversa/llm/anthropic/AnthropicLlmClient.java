@@ -15,9 +15,11 @@ import com.anthropic.core.ObjectMappers;
 import com.anthropic.errors.AnthropicException;
 import com.anthropic.errors.AnthropicIoException;
 import com.anthropic.errors.AnthropicServiceException;
+import com.anthropic.models.messages.Base64ImageSource;
 import com.anthropic.models.messages.CacheControlEphemeral;
 import com.anthropic.models.messages.ContentBlock;
 import com.anthropic.models.messages.ContentBlockParam;
+import com.anthropic.models.messages.ImageBlockParam;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.MessageParam;
@@ -31,6 +33,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -148,6 +151,12 @@ public class AnthropicLlmClient implements LlmClient {
         for (LlmContent content : message.content()) {
             blocks.add(switch (content) {
                 case LlmContent.Text text -> ContentBlockParam.ofText(TextBlockParam.builder().text(text.text()).build());
+                case LlmContent.Image image -> ContentBlockParam.ofImage(ImageBlockParam.builder()
+                        .source(Base64ImageSource.builder()
+                                .mediaType(Base64ImageSource.MediaType.of(image.mediaType()))
+                                .data(Base64.getEncoder().encodeToString(image.data()))
+                                .build())
+                        .build());
                 case LlmContent.ToolCall call -> ContentBlockParam.ofToolUse(ToolUseBlockParam.builder()
                         .id(call.id())
                         .name(call.name())

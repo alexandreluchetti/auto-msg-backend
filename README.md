@@ -53,6 +53,7 @@ Testcontainers · ArchUnit · Docker Compose.
 platform-core/        domain kernel and SPIs (plain Java)
 channel-whatsapp/     WhatsApp Cloud API adapter
 llm-anthropic/        Claude adapter for the LlmClient port
+stt-openai/           OpenAI adapter for the SpeechToText port (voice notes)
 segment-restaurant/   restaurant Segment Pack
 platform-app/         Spring Boot application (wiring, persistence, queues, panel API)
 ```
@@ -115,6 +116,8 @@ starts PostgreSQL with Testcontainers.
 | `BOOTSTRAP_STAFF_EMAIL` / `BOOTSTRAP_STAFF_NAME` / `BOOTSTRAP_STAFF_PASSWORD` | Panel user of that tenant, created or reset on every start (password with at least 10 characters) | empty |
 | `ANTHROPIC_API_KEY` | Claude API key; without it the bot does not answer | — |
 | `ANTHROPIC_DEFAULT_MODEL` | Default Claude model | `claude-opus-5-5` |
+| `OPENAI_API_KEY` | OpenAI key for voice note transcription; without it the bot asks the customer to write | — |
+| `OPENAI_TRANSCRIBE_MODEL` | Transcription model | `gpt-4o-mini-transcribe` |
 
 ## Tests
 

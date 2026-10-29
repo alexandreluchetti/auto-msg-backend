@@ -89,10 +89,18 @@ public class AssistantEngine {
      *
      * @param systemPrompt the tenant's rendered prompt template (persona included)
      * @param memory       what the assistant remembers beyond the latest messages (H5)
+     * @param images       images of the unanswered messages by wamid, sent with them for this answer only (H6)
      */
     public record Turn(TenantId tenant, UUID conversationId, SegmentPack pack, String systemPrompt, String configJson,
                        ZoneId zone,
-                       List<StoredMessage> history, String defaultModel, boolean lastAttempt, Memory memory) {
+                       List<StoredMessage> history, String defaultModel, boolean lastAttempt, Memory memory,
+                       Map<String, LlmContent.Image> images) {
+
+        public Turn(TenantId tenant, UUID conversationId, SegmentPack pack, String systemPrompt, String configJson,
+                    ZoneId zone, List<StoredMessage> history, String defaultModel, boolean lastAttempt, Memory memory) {
+            this(tenant, conversationId, pack, systemPrompt, configJson, zone, history, defaultModel, lastAttempt, memory,
+                    Map.of());
+        }
     }
 
     /**
@@ -266,6 +274,9 @@ public class AssistantEngine {
             customer = message.fromCustomer();
             pending.add(new LlmContent.Text("STAFF".equals(message.author())
                     ? "[Mensagem da equipe do restaurante] " + message.text() : message.text()));
+            if (message.fromCustomer() && message.wamid() != null && turn.images().containsKey(message.wamid())) {
+                pending.add(turn.images().get(message.wamid()));
+            }
         }
         if (customer == null || !customer) {
             throw new IllegalStateException("No unanswered customer message in conversation " + turn.conversationId());

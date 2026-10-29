@@ -243,7 +243,7 @@ class ConversationFlowIT {
     }
 
     @Test
-    void audioIsStoredAsAMarkerTheModelUnderstands() throws Exception {
+    void audioThatCannotBeTranscribedBecomesAMarkerTheModelUnderstands() throws Exception {
         llm.then(ScriptedLlm.text("Ainda não consigo ouvir áudios. Pode escrever?"));
 
         postWebhook(notification("""
@@ -253,7 +253,7 @@ class ConversationFlowIT {
         inboundWorker.runOnce();
         replyWorker.runOnce();
 
-        assertThat(messages().getFirst()).isEqualTo("IN:[áudio]");
+        assertThat(messages().getFirst()).isEqualTo("IN:" + MediaInbox.NOT_TRANSCRIBED);
     }
 
     @Test

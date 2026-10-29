@@ -22,6 +22,7 @@
         <module>platform-core</module>
         <module>channel-whatsapp</module>
         <module>llm-anthropic</module>
+        <module>stt-openai</module>
         <module>segment-restaurant</module>
         <module>platform-app</module>
     </modules>
@@ -49,6 +50,11 @@
             <dependency>
                 <groupId>br.com.conversa</groupId>
                 <artifactId>llm-anthropic</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.conversa</groupId>
+                <artifactId>stt-openai</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
