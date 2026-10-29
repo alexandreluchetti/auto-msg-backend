@@ -33,6 +33,8 @@ class SecurityConfiguration {
                         .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/settings/**", "/api/v1/settings").hasRole("STAFF")
+                        .requestMatchers("/api/v1/settings/**", "/api/v1/simulator/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").hasRole("STAFF")
                         .anyRequest().denyAll())
                 .csrf(csrf -> csrf.spa().ignoringRequestMatchers("/webhooks/**"))
