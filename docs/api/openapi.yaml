@@ -139,6 +139,15 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Handoff' }
+  /api/v1/conversations/{id}/takeover:
+    post:
+      summary: Staff take the conversation over; the bot stops until it is handed back
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Csrf'
+      responses:
+        '204': { description: The bot is paused for this customer }
+        '404': { description: No such conversation for this business }
   /api/v1/conversations/{id}/resume:
     post:
       summary: Hands the conversation back to the bot
@@ -146,7 +155,7 @@ paths:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/Csrf'
       responses:
-        '204': { description: The bot answers the next customer message }
+        '204': { description: The bot is back; a customer left waiting is answered now }
   /api/v1/events:
     get:
       summary: Live events (Server-Sent Events)
@@ -223,7 +232,7 @@ components:
         id: { type: string, format: uuid }
         customerName: { type: [string, 'null'] }
         customerPhone: { type: string }
-        handoffReason: { type: string, enum: [STAFF_REPLY, CUSTOMER_REQUEST, BOT_REQUEST, REPEATED_FAILURES] }
+        handoffReason: { type: string, enum: [STAFF_REPLY, STAFF_TAKEOVER, CUSTOMER_REQUEST, BOT_REQUEST, REPEATED_FAILURES] }
         handoffAt: { type: string, format: date-time }
         pausedUntil: { type: string, format: date-time }
         lastMessage: { type: [string, 'null'] }

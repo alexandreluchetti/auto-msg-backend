@@ -8,6 +8,7 @@ import br.com.conversa.app.outbound.SenderWorker;
 import br.com.conversa.app.persona.PersonaTexts;
 import br.com.conversa.app.tenant.TenantChannelService;
 import br.com.conversa.app.tenant.TenantService;
+import br.com.conversa.app.tenant.TenantTransactions;
 import br.com.conversa.core.llm.LlmClient;
 import br.com.conversa.core.llm.LlmContent;
 import br.com.conversa.core.tenant.TenantId;
@@ -37,6 +38,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -109,6 +111,15 @@ class HandoffFlowIT {
 
     @Autowired
     ObjectMapper mapper;
+
+    @Autowired
+    HandoffService handoff;
+
+    @Autowired
+    ConversationRepository conversations;
+
+    @Autowired
+    TenantTransactions tenantTransactions;
 
     private TenantId tenant;
 
@@ -214,6 +225,45 @@ class HandoffFlowIT {
 
         OffsetDateTime pausedUntil = jdbc.sql("SELECT paused_until FROM conversation").query(OffsetDateTime.class).single();
         assertThat(pausedUntil.toInstant()).isAfter(Instant.now().plusSeconds(29 * 60));
+    }
+
+    @Test
+    void staffTakeOverAndHandBackAndTheWaitingCustomerIsAnswered() throws Exception {
+        llm.then(ScriptedLlm.text("Oi! Tudo bem?"));
+        postWebhook(textMessage("wamid.IN1", "Oi"));
+        processAll();
+        UUID conversation = jdbc.sql("SELECT id FROM conversation").query(UUID.class).single();
+        JsonNode config = tenantService.effectiveConfig(tenant);
+
+        tenantTransactions.runInTenant(tenant, () -> handoff.takeOver(tenant, conversation, config));
+        postWebhook(textMessage("wamid.IN2", "Quero uma pizza"));
+        processAll();
+
+        assertThat(conversation()).containsEntry("state", "HUMAN").containsEntry("handoff_reason", "STAFF_TAKEOVER");
+        assertThat(llm.requests()).hasSize(1);
+
+        llm.then(ScriptedLlm.text("Claro! Qual sabor?"));
+        tenantTransactions.runInTenant(tenant, () -> conversations.resume(conversation));
+        processAll();
+
+        assertThat(conversation()).containsEntry("state", "BOT");
+        assertThat(llm.requests()).hasSize(2);
+        assertThat(sentTexts()).endsWith("Claro! Qual sabor?");
+    }
+
+    @Test
+    void theHandoffNoticeFollowsThePersona() throws Exception {
+        tenantService.updateConfig(tenant, """
+                {"business": {"name": "Cantina da Praça"}, "staffNumbers": ["%s"], "persona": {"tone": "formal"}}
+                """.formatted(STAFF));
+
+        postWebhook(textMessage("wamid.IN1", "Quero falar com um atendente"));
+        processAll();
+
+        assertThat(sentTexts()).containsExactly(PersonaTexts.handoff(tenantService.effectiveConfig(tenant)));
+        assertThat(PersonaTexts.handoff(tenantService.effectiveConfig(tenant))).startsWith("Certo. Vou chamar");
+        OffsetDateTime pausedUntil = jdbc.sql("SELECT paused_until FROM conversation").query(OffsetDateTime.class).single();
+        assertThat(pausedUntil.toInstant()).isBetween(Instant.now().plusSeconds(239 * 60), Instant.now().plusSeconds(241 * 60));
     }
 
     private void processAll() {

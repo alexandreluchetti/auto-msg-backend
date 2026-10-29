@@ -1,6 +1,8 @@
 package br.com.conversa.app.api;
 
 import br.com.conversa.app.conversation.ConversationRepository;
+import br.com.conversa.app.conversation.HandoffService;
+import br.com.conversa.app.tenant.TenantService;
 import br.com.conversa.app.tenant.TenantTransactions;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +19,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Conversations with staff (ADR-008): the panel lists them and hands them back to the bot.
+ * Conversations with staff (ADR-008, D-015): the panel lists them, takes them over and hands them
+ * back to the bot.
  */
 @RestController
 @RequestMapping("/api/v1/conversations")
@@ -31,13 +34,17 @@ class ConversationsController {
     private final TenantTransactions tenants;
     private final ConversationRepository conversations;
     private final ApplicationEventPublisher events;
+    private final HandoffService handoff;
+    private final TenantService tenantService;
 
     ConversationsController(JdbcClient jdbc, TenantTransactions tenants, ConversationRepository conversations,
-                            ApplicationEventPublisher events) {
+                            ApplicationEventPublisher events, HandoffService handoff, TenantService tenantService) {
         this.jdbc = jdbc;
         this.tenants = tenants;
         this.conversations = conversations;
         this.events = events;
+        this.handoff = handoff;
+        this.tenantService = tenantService;
     }
 
     /** Conversations staff are handling now, most recent handoff first. */
@@ -56,7 +63,15 @@ class ConversationsController {
                 .query(HandoffView.class).list());
     }
 
-    /** "Devolver ao bot": ends the pause now. */
+    /** "Assumir conversa": the bot stops answering this customer until staff hand it back. */
+    @PostMapping("/{id}/takeover")
+    ResponseEntity<Void> takeOver(@AuthenticationPrincipal StaffUser user, @PathVariable UUID id) {
+        var config = tenantService.effectiveConfig(user.tenant());
+        boolean found = tenants.inTenant(user.tenant(), () -> handoff.takeOver(user.tenant(), id, config));
+        return found ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
+    /** "Devolver ao bot": ends the pause now; a customer left waiting is answered. */
     @PostMapping("/{id}/resume")
     ResponseEntity<Void> resume(@AuthenticationPrincipal StaffUser user, @PathVariable UUID id) {
         tenants.runInTenant(user.tenant(), () -> {

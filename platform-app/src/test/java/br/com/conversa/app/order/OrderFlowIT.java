@@ -216,12 +216,33 @@ class OrderFlowIT {
     }
 
     @Test
-    void typingIsNotConfirming() throws Exception {
+    void aClearTextRightAfterTheSummaryConfirmsOnce() throws Exception {
         orderUpToTheSummary();
-        llm.then(ScriptedLlm.text("Para confirmar, toque no botão *Confirmar pedido* do resumo."));
+        int modelCalls = llm.requests().size();
 
-        customerSays("wamid.IN2", "confirmo");
+        customerSays("wamid.IN2", "Pode mandar!");
 
+        assertThat(orders()).singleElement().satisfies(order -> {
+            assertThat(order.get("confirmation_wamid")).isEqualTo("wamid.IN2");
+            assertThat((BigDecimal) order.get("total")).isEqualByComparingTo("79.90");
+        });
+        assertThat(llm.requests()).hasSize(modelCalls);
+        assertThat(lastText()).startsWith("Pedido *#1* confirmado!");
+
+        llm.then(ScriptedLlm.text("Já está confirmado, logo chega aí!"));
+        customerSays("wamid.IN3", "confirmo");
+        assertThat(orders()).hasSize(1);
+    }
+
+    @Test
+    void anAmbiguousOrLateTextIsNotConfirming() throws Exception {
+        orderUpToTheSummary();
+        llm.then(ScriptedLlm.text("Tiro a cebola? Aí te mando o resumo de novo."));
+        customerSays("wamid.IN2", "sim, mas sem cebola");
+        assertThat(orders()).isEmpty();
+
+        llm.then(ScriptedLlm.text("Para confirmar, toque em *Confirmar pedido* no resumo."));
+        customerSays("wamid.IN3", "pode mandar");
         assertThat(orders()).isEmpty();
     }
 

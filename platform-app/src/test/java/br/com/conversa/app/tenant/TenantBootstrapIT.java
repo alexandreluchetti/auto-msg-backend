@@ -42,7 +42,7 @@ class TenantBootstrapIT {
         assertThat(channels.accessTokenRef("200000000000001")).contains("WHATSAPP_TOKEN_PILOT");
         var config = tenants.effectiveConfig(tenant);
         assertThat(config.path("business").path("city").asString()).isEqualTo("Bonfim Paulista");
-        assertThat(config.path("handoff").path("pauseMinutes").asInt()).isEqualTo(60);
+        assertThat(config.path("handoff").path("pauseMinutes").asInt()).isEqualTo(240);
     }
 
     @Test

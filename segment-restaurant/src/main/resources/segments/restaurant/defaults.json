@@ -5,5 +5,5 @@
   "staffNumbers": [],
   "retention": { "messageDays": 180 },
   "humanization": { "maxBubbles": 2, "typingIndicator": true, "msPerChar": 40, "minDelayMs": 1200, "maxDelayMs": 6000, "groupingSeconds": 4 },
-  "handoff": { "pauseMinutes": 60 }
+  "handoff": { "pauseMinutes": 240 }
 }

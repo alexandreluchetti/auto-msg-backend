@@ -4,6 +4,7 @@ package br.com.conversa.app.conversation;
 public enum HandoffReason {
 
     STAFF_REPLY("a equipe respondeu pelo app"),
+    STAFF_TAKEOVER("a equipe assumiu pelo painel"),
     CUSTOMER_REQUEST("o cliente pediu para falar com um atendente"),
     BOT_REQUEST("o assistente pediu ajuda"),
     REPEATED_FAILURES("o assistente não conseguiu responder");

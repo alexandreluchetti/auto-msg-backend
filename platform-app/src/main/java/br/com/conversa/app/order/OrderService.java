@@ -59,6 +59,21 @@ public class OrderService {
         this.mapper = mapper;
     }
 
+    /**
+     * The pending summary the customer is answering (D-016): the latest one, with nothing said to the
+     * customer after it (by the bot or staff). A clear text confirmation applies only to it.
+     */
+    public Optional<UUID> awaitingConfirmation(UUID conversation) {
+        return jdbc.sql("""
+                        SELECT ch.id FROM checkout ch
+                        WHERE ch.conversation_id = :id AND ch.status = 'PENDING'
+                          AND NOT EXISTS (SELECT 1 FROM message m WHERE m.conversation_id = ch.conversation_id
+                                            AND m.direction = 'OUT' AND m.created_at > ch.created_at)
+                        ORDER BY ch.created_at DESC LIMIT 1
+                        """)
+                .param("id", conversation).query(UUID.class).optional();
+    }
+
     /** Stores a summary about to be shown; earlier pending summaries no longer confirm. */
     public UUID openCheckout(TenantId tenant, UUID conversation, OrderDraft draft) {
         jdbc.sql("UPDATE checkout SET status = 'SUPERSEDED' WHERE conversation_id = :id AND status = 'PENDING'")

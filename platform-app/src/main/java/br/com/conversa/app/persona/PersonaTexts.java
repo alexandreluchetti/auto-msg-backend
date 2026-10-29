@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * The fixed texts the engine sends without the LLM (failure, refusal, "I am the virtual
+ * The fixed texts the engine sends without the LLM (failure, refusal, handoff, "I am the virtual
  * assistant"), written per tone so they sound like the rest of the conversation (ADR-011). They stay
  * deterministic: the LLM never writes them.
  */
@@ -19,6 +19,12 @@ public final class PersonaTexts {
             "casual", "Eita, travei aqui! Manda de novo daqui a pouco? A galera da equipe também tá acompanhando.",
             "formal", "Desculpe, não consegui responder agora. Poderia enviar sua mensagem novamente em instantes? "
                     + "A equipe também acompanha esta conversa.");
+    private static final Map<String, String> HANDOFF = Map.of(
+            "friendly", "Certo! Vou chamar alguém da equipe pra continuar seu atendimento por aqui. É só aguardar "
+                    + "um pouquinho 😊",
+            "casual", "Beleza! Vou chamar alguém da equipe pra seguir contigo por aqui, só um instante.",
+            "formal", "Certo. Vou chamar alguém da equipe para continuar o seu atendimento por aqui. Aguarde só um "
+                    + "instante, por favor.");
     private static final Map<String, String> REFUSAL = Map.of(
             "friendly", "Isso eu não consigo te ajudar, mas no cardápio, nos horários, na entrega ou no seu pedido "
                     + "é comigo mesmo! 😊",
@@ -39,6 +45,11 @@ public final class PersonaTexts {
 
     public static String fallback(JsonNode config) {
         return FALLBACK.getOrDefault(tone(config), FALLBACK.get("friendly"));
+    }
+
+    /** What the customer reads when the conversation goes to staff. */
+    public static String handoff(JsonNode config) {
+        return HANDOFF.getOrDefault(tone(config), HANDOFF.get("friendly"));
     }
 
     public static String refusal(JsonNode config) {
