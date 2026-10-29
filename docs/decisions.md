@@ -100,7 +100,7 @@ kept. Images are read by the assistant. This moves voice transcription out of ph
 
 - Handoff safety net (D-015): the bot returns after 4 hours without a staff reply, renewed on
   every reply, configurable per business (`handoff.pauseMinutes`, 5–1440 min; was 60).
-- Inbound grouping (ADR-011): the bot waits 4 s of silence (2–15 s per business) and answers a burst of customer messages
+- Inbound grouping (ADR-011, H4): the bot waits 4 s of silence (2–15 s per business, `humanization.groupingSeconds`) and answers a burst of customer messages
   together, to save paid messages and LLM calls.
 - Privacy notice with a link to the policy on the first contact of each customer.
 - Message retention: 180 days by default, configurable per business; orders are kept, with

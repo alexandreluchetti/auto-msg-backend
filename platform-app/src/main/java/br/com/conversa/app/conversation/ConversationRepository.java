@@ -48,15 +48,19 @@ public class ConversationRepository {
         this.jdbc = jdbc;
     }
 
+    /** The conversation a customer message went to, and whether the message was new. */
+    public record RecordedMessage(UUID conversationId, boolean isNew) {
+    }
+
     /**
      * Stores a customer message once (by wamid) in the customer's conversation, creating both when
      * needed. A pause that has expired ends here: the bot takes the conversation back. When
      * {@code answerAfter} is set and the bot is in charge, the answer is (re)scheduled for that
      * moment, so a burst of messages gets one answer.
      *
-     * @return the conversation id
+     * @return the conversation and whether the message was new
      */
-    public UUID recordCustomerMessage(TenantId tenant, String phoneNumberId, String waId, String displayName,
+    public RecordedMessage recordCustomerMessage(TenantId tenant, String phoneNumberId, String waId, String displayName,
                                       String wamid, String type, String text, String replyId, Instant sentAt,
                                       Duration answerAfter) {
         UUID conversation = conversationOf(tenant, phoneNumberId, waId, displayName);
@@ -80,7 +84,7 @@ public class ConversationRepository {
                     .param("id", conversation)
                     .update();
         }
-        return conversation;
+        return new RecordedMessage(conversation, inserted);
     }
 
     /**
