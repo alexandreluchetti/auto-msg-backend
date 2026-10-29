@@ -256,8 +256,11 @@ flowchart LR
   `TurnCancellation` marks the pending rows `CANCELLED` and keeps in the history only the messages
   already sent (or removes the stored answer); `conversa.assistant.debounce`, when set, overrides
   the tenant window (tests).
-- **Memory.** Cart slots stay in the pack's conversation state; `conversation_summary` keeps a
-  rolling summary of long conversations; `customer_profile` keeps the preferred name, last
+- **Memory (implemented, H5).** Cart slots stay in the pack's conversation state; `conversation_summary` keeps a
+  rolling summary of long conversations (`ConversationSummarizer`, a cheap model every 10 uncovered
+  older messages); `CustomerMemory` reads the WhatsApp first name, latest 3 orders and last delivery
+  address from the contact and its orders (no separate profile table), and both go to the model in the
+  turn context; this replaces the planned `customer_profile`, which would have kept the preferred name, last
   address/neighborhood and latest orders, under retention and erasure.
 - **Media.** Images are sent to Claude; audio is transcribed through the `SpeechToText` port
   (`stt-openai`, ADR-012) and stored as text. Failures ask the customer to write or hand over.

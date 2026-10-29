@@ -75,7 +75,8 @@ public class PrivacyService {
         String business = config.path("business").path("name").asString("o restaurante");
         String policy = config.path("privacy").path("policyUrl").asString("");
         return "_Este é o atendimento automático do " + business + ". Usamos seus dados só para atender você e "
-                + "cuidar dos seus pedidos" + (policy.isBlank() ? "" : " (política de privacidade: " + policy + ")")
+                + "cuidar dos seus pedidos, e lembramos seu nome, endereço e últimos pedidos para facilitar os "
+                + "próximos" + (policy.isBlank() ? "" : " (política de privacidade: " + policy + ")")
                 + ". Para apagar seus dados a qualquer momento, envie \"apagar meus dados\"._";
     }
 
@@ -142,6 +143,7 @@ public class PrivacyService {
         UUID contact = jdbc.sql("SELECT contact_id FROM conversation WHERE id = :id")
                 .param("id", conversation).query(UUID.class).single();
         jdbc.sql("DELETE FROM message WHERE conversation_id = :id").param("id", conversation).update();
+        jdbc.sql("DELETE FROM conversation_summary WHERE conversation_id = :id").param("id", conversation).update();
         jdbc.sql("""
                         UPDATE conversation SET context = '{}', state = 'BOT', paused_until = NULL, reply_due_at = NULL,
                                                 updated_at = now()

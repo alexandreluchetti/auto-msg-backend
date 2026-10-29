@@ -5,6 +5,8 @@ import br.com.conversa.app.compose.TurnSender;
 import br.com.conversa.app.conversation.ConversationRepository.ClaimedReply;
 import br.com.conversa.app.conversation.ConversationRepository.ConversationView;
 import br.com.conversa.app.conversation.ConversationRepository.StoredMessage;
+import br.com.conversa.app.memory.ConversationSummarizer;
+import br.com.conversa.app.memory.CustomerMemory;
 import br.com.conversa.app.order.OrderService;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
 import br.com.conversa.app.persona.PersonaPrompt;
@@ -61,6 +63,8 @@ public class ReplyWorker {
     private final PrivacyService privacy;
     private final PromptTemplates prompts;
     private final TurnSender turns;
+    private final ConversationSummarizer summarizer;
+    private final CustomerMemory customers;
     private final TransactionTemplate transactions;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -70,7 +74,7 @@ public class ReplyWorker {
                 AssistantProperties properties, AnthropicProperties anthropic, HandoffService handoff,
                 HandoffProperties handoffProperties, OrderService orders, PrivacyService privacy,
                 PromptTemplates prompts,
-                TurnSender turns,
+                TurnSender turns, ConversationSummarizer summarizer, CustomerMemory customers,
                 TransactionTemplate transactions,
                 ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
@@ -87,6 +91,8 @@ public class ReplyWorker {
         this.privacy = privacy;
         this.prompts = prompts;
         this.turns = turns;
+        this.summarizer = summarizer;
+        this.customers = customers;
         this.transactions = transactions;
         this.mapper = mapper;
         this.clock = clock;
@@ -149,7 +155,7 @@ public class ReplyWorker {
             String prompt = PersonaPrompt.render(prompts.template(tenant, pack, PromptTemplates.Status.PUBLISHED), config);
             var answer = engine.answer(new AssistantEngine.Turn(tenant, claim.conversationId(), pack, prompt,
                     config.toString(), directory.openingHours(tenant).zone(), history, anthropic.defaultModel(),
-                    claim.attempts() >= properties.maxAttempts()));
+                    claim.attempts() >= properties.maxAttempts(), memory(tenant, claim.conversationId())));
             int failures = answer.outcome() == AssistantEngine.Outcome.FALLBACK ? conversation.failureStreak() + 1 : 0;
             if (answer.outcome() == AssistantEngine.Outcome.HANDOFF || failures >= handoffProperties.failureThreshold()) {
                 HandoffReason reason = answer.outcome() == AssistantEngine.Outcome.HANDOFF
@@ -184,6 +190,14 @@ public class ReplyWorker {
                 }
             });
         }
+    }
+
+    /** Summary of the earlier conversation and what the business knows about the customer (H5). */
+    private AssistantEngine.Memory memory(TenantId tenant, UUID conversation) {
+        String summary = summarizer.summaryFor(tenant, conversation);
+        String customer = tenants.inTenant(tenant,
+                () -> customers.describe(conversation, directory.openingHours(tenant).zone()));
+        return new AssistantEngine.Memory(summary, customer);
     }
 
     /**

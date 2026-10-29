@@ -219,6 +219,9 @@ versionados.
   `available_at`). Nos ITs que enviam respostas use `conversa.assistant.pace-scale=0`; o
   `HumanPaceIT` testa os atrasos reais. Agrupamento e cancelamento (H4): `TurnCancellation`, janela
   `humanization.groupingSeconds` (o `conversa.assistant.debounce` dos testes sobrepõe); `GroupingIT`.
+- Memória (H5): `app.memory` — `CustomerMemory` (nome, últimos pedidos e endereço lidos do contato e
+  dos pedidos, sem tabela de perfil) e `ConversationSummarizer` (`conversation_summary`, modelo
+  `conversa.assistant.summary-model`); entram em `AssistantEngine.Memory`. Teste: `MemoryIT`.
 - Eval do M5: `AssistantEval` (`eval/restaurant-questions.json`) chama a **API real e gera
   custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
   (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);

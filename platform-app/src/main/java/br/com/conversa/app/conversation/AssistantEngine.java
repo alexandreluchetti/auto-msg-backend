@@ -88,10 +88,20 @@ public class AssistantEngine {
      * Everything one answer needs; {@code history} ends with the customer's unanswered messages.
      *
      * @param systemPrompt the tenant's rendered prompt template (persona included)
+     * @param memory       what the assistant remembers beyond the latest messages (H5)
      */
     public record Turn(TenantId tenant, UUID conversationId, SegmentPack pack, String systemPrompt, String configJson,
                        ZoneId zone,
-                       List<StoredMessage> history, String defaultModel, boolean lastAttempt) {
+                       List<StoredMessage> history, String defaultModel, boolean lastAttempt, Memory memory) {
+    }
+
+    /**
+     * Memory of the customer (ADR-011): a summary of the earlier part of a long conversation and what
+     * the business knows about the customer (name, latest orders, last address). Either may be empty.
+     */
+    public record Memory(String summary, String customer) {
+
+        public static final Memory NONE = new Memory("", "");
     }
 
     public enum Outcome { ANSWERED, REFUSED, FALLBACK, HANDOFF, CHECKOUT }
@@ -261,8 +271,17 @@ public class AssistantEngine {
             throw new IllegalStateException("No unanswered customer message in conversation " + turn.conversationId());
         }
         String now = NOW.format(clock.instant().atZone(turn.zone()));
-        pending.addFirst(new LlmContent.Text("[Contexto do sistema: agora é " + now + ", no horário do restaurante.]"));
+        String known = turn.memory().customer().isBlank() ? "" : " " + turn.memory().customer().strip();
+        pending.addFirst(new LlmContent.Text("[Contexto do sistema: agora é " + now + ", no horário do restaurante."
+                + known + "]"));
         messages.add(new LlmMessage(LlmMessage.Role.USER, pending));
+        if (!turn.memory().summary().isBlank()) {
+            LlmMessage first = messages.getFirst();
+            List<LlmContent> withSummary = new ArrayList<>(first.content());
+            withSummary.addFirst(new LlmContent.Text("[Resumo do começo desta conversa: "
+                    + turn.memory().summary().strip() + "]"));
+            messages.set(0, new LlmMessage(first.role(), withSummary));
+        }
         return messages;
     }
 
