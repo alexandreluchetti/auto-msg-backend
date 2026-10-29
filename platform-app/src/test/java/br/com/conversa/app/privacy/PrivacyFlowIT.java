@@ -56,7 +56,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "conversa.whatsapp.app-secret=" + PrivacyFlowIT.APP_SECRET,
         "conversa.whatsapp.access-token=it-platform-token",
         "conversa.workers.enabled=false",
-        "conversa.assistant.debounce=0s"
+        "conversa.assistant.debounce=0s",
+        "conversa.assistant.pace-scale=0"
 })
 @AutoConfigureMockMvc
 @Import({TestcontainersConfiguration.class, PrivacyFlowIT.Llm.class})
@@ -149,11 +150,11 @@ class PrivacyFlowIT {
         says("wamid.IN2", "Que horas abre?");
 
         List<String> texts = sentTexts();
-        assertThat(texts).hasSize(2);
+        assertThat(texts).hasSize(3);
         assertThat(texts.get(0)).startsWith("_Este é o atendimento automático do Cantina da Praça.")
-                .contains("política de privacidade: https://cantina.test/privacidade", "\"apagar meus dados\"")
-                .endsWith("Oi! Como posso ajudar?");
-        assertThat(texts.get(1)).isEqualTo("Abrimos às 18h.");
+                .contains("política de privacidade: https://cantina.test/privacidade", "\"apagar meus dados\"");
+        assertThat(texts.get(1)).isEqualTo("Oi! Como posso ajudar?");
+        assertThat(texts.get(2)).isEqualTo("Abrimos às 18h.");
         assertThat(jdbc.sql("SELECT consent_notice_at IS NOT NULL FROM contact").query(Boolean.class).single()).isTrue();
     }
 
@@ -193,7 +194,8 @@ class PrivacyFlowIT {
         says("wamid.IN3", "Oi de novo");
         assertThat(jdbc.sql("SELECT count(*) FROM contact WHERE wa_id = :wa").param("wa", CUSTOMER)
                 .query(Long.class).single()).isEqualTo(1);
-        assertThat(PrivacyNotices.has(sentTexts().getLast())).isTrue();
+        List<String> afterErasure = sentTexts();
+        assertThat(PrivacyNotices.has(afterErasure.get(afterErasure.size() - 2))).isTrue();
     }
 
     @Test

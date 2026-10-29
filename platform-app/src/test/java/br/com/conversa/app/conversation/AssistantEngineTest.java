@@ -44,7 +44,7 @@ class AssistantEngineTest {
                     recorded.add(requestedModel + "/" + effort + "/" + response.stopReason()),
             new ToolInputValidator(mapper),
             new AssistantProperties(true, Duration.ofSeconds(2), "low", 4096, 2, 30, Duration.ofMinutes(2), 3,
-                    Duration.ZERO),
+                    Duration.ZERO, 0),
             mapper, clock);
 
     private final Tool menu = new Tool() {
@@ -107,7 +107,7 @@ class AssistantEngineTest {
 
         var second = llm.requests().get(1);
         assertThat(second.system()).isEqualTo("Você é a assistente.");
-        assertThat(second.tools()).extracting(spec -> spec.name()).containsExactly("search_menu", "request_human");
+        assertThat(second.tools()).extracting(spec -> spec.name()).containsExactly("search_menu", "request_human", "offer_options");
         assertThat(second.messages()).hasSize(3);
         assertThat(second.messages().get(1).providerMessage()).isEqualTo("provider-turn-t1");
         assertThat(second.messages().get(2).content()).singleElement()

@@ -58,6 +58,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "conversa.whatsapp.access-token=it-platform-token",
         "conversa.workers.enabled=false",
         "conversa.assistant.debounce=0s",
+        "conversa.assistant.pace-scale=0",
         "conversa.orders.staff-alert-template=novo_pedido"
 })
 @AutoConfigureMockMvc
@@ -303,6 +304,7 @@ class OrderFlowIT {
         return sent().stream()
                 .filter(body -> "text".equals(body.path("type").asString()) && CUSTOMER.equals(body.path("to").asString()))
                 .map(body -> PrivacyNotices.strip(body.path("text").path("body").asString()))
+                .filter(text -> !text.isEmpty())
                 .reduce((first, second) -> second).orElseThrow();
     }
 

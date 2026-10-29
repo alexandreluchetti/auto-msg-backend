@@ -1,5 +1,7 @@
 package br.com.conversa.app.conversation;
 
+import br.com.conversa.app.compose.ResponseComposer;
+import br.com.conversa.app.compose.TurnSender;
 import br.com.conversa.app.conversation.ConversationRepository.ClaimedReply;
 import br.com.conversa.app.conversation.ConversationRepository.ConversationView;
 import br.com.conversa.app.conversation.ConversationRepository.StoredMessage;
@@ -58,6 +60,7 @@ public class ReplyWorker {
     private final OrderService orders;
     private final PrivacyService privacy;
     private final PromptTemplates prompts;
+    private final TurnSender turns;
     private final TransactionTemplate transactions;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -65,7 +68,9 @@ public class ReplyWorker {
     ReplyWorker(ConversationRepository conversations, AssistantEngine engine, TenantTransactions tenants,
                 TenantService tenantService, BusinessDirectory directory, OutboundMessageRepository outbound,
                 AssistantProperties properties, AnthropicProperties anthropic, HandoffService handoff,
-                HandoffProperties handoffProperties, OrderService orders, PrivacyService privacy, PromptTemplates prompts,
+                HandoffProperties handoffProperties, OrderService orders, PrivacyService privacy,
+                PromptTemplates prompts,
+                TurnSender turns,
                 TransactionTemplate transactions,
                 ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
@@ -81,6 +86,7 @@ public class ReplyWorker {
         this.orders = orders;
         this.privacy = privacy;
         this.prompts = prompts;
+        this.turns = turns;
         this.transactions = transactions;
         this.mapper = mapper;
         this.clock = clock;
@@ -128,7 +134,7 @@ public class ReplyWorker {
                     var confirmation = orders.confirm(tenant, current.id(),
                             tapped.substring(OrderService.CONFIRM_PREFIX.length()), lastWamid, current.phoneNumberId(),
                             HandoffService.customerLabel(current), config);
-                    reply(tenant, current, lastWamid, confirmation.customerText(), config);
+                    reply(tenant, current, lastWamid, confirmation.customerText(), List.of(), config);
                     conversations.setFailureStreak(current.id(), 0);
                     log.info("Confirmation tap in conversation {}: {}", current.id(), confirmation.result());
                 });
@@ -157,7 +163,7 @@ public class ReplyWorker {
                 });
             } else {
                 deliver(claim, lastWamid, current -> {
-                    reply(tenant, current, lastWamid, answer.text(), config);
+                    reply(tenant, current, lastWamid, answer.text(), answer.options(), config);
                     conversations.setFailureStreak(current.id(), failures);
                 });
             }
@@ -181,18 +187,17 @@ public class ReplyWorker {
     }
 
     /**
-     * Stores and sends a text answer with the read receipt of the message it answers, once, with the
-     * privacy notice if it is the customer's first answer.
+     * Stores the answer and sends it as a turn (composed messages at a human pace, ADR-011), once,
+     * with the privacy notice if it is the customer's first answer.
      */
     private void reply(TenantId tenant, ConversationView conversation, String lastWamid, String answer,
-                       JsonNode config) {
+                       List<String> options, JsonNode config) {
         String ref = "reply:" + conversation.id() + ":" + lastWamid;
         String text = privacy.withNotice(conversation.id(), answer, config);
-        if (conversations.recordBotMessage(tenant, conversation.id(), ref, text, clock.instant())) {
-            outbound.enqueue("read:" + lastWamid, tenant, OutboundRequest.readReceipt(
-                    conversation.phoneNumberId(), conversation.waId(), lastWamid, mapper));
-            outbound.enqueue(ref, tenant, OutboundRequest.text(
-                    conversation.phoneNumberId(), conversation.waId(), text, mapper));
+        List<ResponseComposer.Bubble> bubbles = ResponseComposer.compose(text, options, config);
+        String stored = String.join("\n\n", bubbles.stream().map(ResponseComposer.Bubble::text).toList());
+        if (conversations.recordBotMessage(tenant, conversation.id(), ref, stored, clock.instant())) {
+            turns.send(tenant, conversation.phoneNumberId(), conversation.waId(), lastWamid, ref, bubbles, config);
         }
     }
 

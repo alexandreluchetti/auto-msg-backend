@@ -121,7 +121,8 @@ class AssistantEval {
                 (tenant, conversation, requestedModel, requestedEffort, response, duration) ->
                         cost[0] = cost[0].add(pricing.cost(response.model(), response.usage())),
                 new ToolInputValidator(mapper),
-                new AssistantProperties(true, Duration.ZERO, effort, 4096, 4, 30, Duration.ofMinutes(2), 1, Duration.ZERO),
+                new AssistantProperties(true, Duration.ZERO, effort, 4096, 4, 30, Duration.ofMinutes(2), 1, Duration.ZERO,
+                        1),
                 mapper, clock);
 
         Set<String> realPrices = realPrices(fixture);

@@ -241,12 +241,15 @@ flowchart LR
   seeds the pack's `prompts/system.md` as a new published segment default whenever it changes;
   `TenantService.saveDraft` / `publishDraft` keep `tenant.config` as the published version.
   `PersonaTexts` holds the per-tone fixed texts and replaces any answer that claims to be human.
-- **Composition.** The engine's answer goes through `ResponseComposer`, which splits it into at most
+- **Composition (implemented, H3).** The engine's answer goes through `ResponseComposer`, which splits it into at most
   `humanization.maxBubbles` (≤ 2, D-014) and turns a small set of options into an interactive list
   or buttons. Fixed texts (refusal, failure, handoff, confirmation) are deterministic, per tone.
-- **Pace.** A *turn* is a typing indicator (`status: read` + `typing_indicator`) followed by bubbles
+- **Pace (implemented, H3).** A *turn* is a typing indicator (`status: read` + `typing_indicator`) followed by bubbles
   scheduled in the outbox with `available_at` = previous + delay(length), within the tenant's
   minimum and maximum; the indicator is refreshed before each bubble. No thread sleeps.
+  `TurnSender` enqueues the turn (`turn_id`, `turn_seq`, `available_at` from `HumanPace`); the
+  assistant marks splits with `---` and offers choices with the `offer_options` control tool
+  (buttons up to 3, a list up to 10). Settings: `humanization` in the tenant configuration.
 - **Grouping and interruptions.** The silence window is per tenant (default 4 s). A customer message
   that arrives while a turn still has pending bubbles cancels them (`turn_id`), and the answer is
   rebuilt with the new message.
