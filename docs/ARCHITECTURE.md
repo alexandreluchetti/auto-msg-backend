@@ -23,6 +23,9 @@ Principles:
 4. **Data isolation per tenant from day one** (`tenant_id` + Row-Level Security).
 5. **Modular monolith.** One deployable, Maven modules with boundaries checked by ArchUnit.
    Extract services only when there is a measured reason.
+6. **Feels like the business's own staff** (D-012, ADR-011). Persona per business, natural short
+   messages at a human pace, free conversation, memory of the customer; never claiming to be
+   human, never inventing a fact.
 
 ## 2. Context and constraints that shape the design
 
@@ -218,6 +221,39 @@ inactivity.
   real API and a synthetic restaurant, graded by required tools, expected phrases and "no invented
   prices", and writes `target/eval-report.md`. It never runs in the build; running it costs money.
 
+### 5.1 Humanized service (ADR-011, planned: roadmap track H)
+
+```mermaid
+flowchart LR
+    IN[customer messages] --> GR[grouping window<br/>per tenant]
+    GR --> MD[media: audio → STT<br/>image → Claude]
+    MD --> ENG[AssistantEngine<br/>persona prompt + profile<br/>+ summary + tools]
+    ENG --> CMP[ResponseComposer<br/>≤ 2 bubbles · list/buttons<br/>only for real choices]
+    CMP --> PACE[turn in the outbox<br/>typing → bubble 1 → bubble 2<br/>delays by length]
+    IN -. new message while pending .-> PACE
+```
+
+- **Persona and prompt.** `persona` in the tenant configuration renders into a versioned prompt
+  template (`prompt_template`: segment default, optional tenant override, draft/published).
+  Configuration has draft and published versions (`tenant_config_version`); the simulator runs the
+  draft.
+- **Composition.** The engine's answer goes through `ResponseComposer`, which splits it into at most
+  `humanization.maxBubbles` (≤ 2, D-014) and turns a small set of options into an interactive list
+  or buttons. Fixed texts (refusal, failure, handoff, confirmation) are deterministic, per tone.
+- **Pace.** A *turn* is a typing indicator (`status: read` + `typing_indicator`) followed by bubbles
+  scheduled in the outbox with `available_at` = previous + delay(length), within the tenant's
+  minimum and maximum; the indicator is refreshed before each bubble. No thread sleeps.
+- **Grouping and interruptions.** The silence window is per tenant (default 4 s). A customer message
+  that arrives while a turn still has pending bubbles cancels them (`turn_id`), and the answer is
+  rebuilt with the new message.
+- **Memory.** Cart slots stay in the pack's conversation state; `conversation_summary` keeps a
+  rolling summary of long conversations; `customer_profile` keeps the preferred name, last
+  address/neighborhood and latest orders, under retention and erasure.
+- **Media.** Images are sent to Claude; audio is transcribed through the `SpeechToText` port
+  (`stt-openai`, ADR-012) and stored as text. Failures ask the customer to write or hand over.
+- **Confirmation by text** (D-016): right after the latest summary, a fixed rule recognizes clear
+  confirmations ("pode mandar", "confirmo") as the tap; the LLM never confirms.
+
 ## 6. Human handoff (coexistence)
 
 See [ADR-008](adr/ADR-008-human-handoff.md).
@@ -225,7 +261,8 @@ See [ADR-008](adr/ADR-008-human-handoff.md).
 - **Triggers:** the customer asks ("falar com atendente"), the `request_human` tool called by
   the LLM, N misunderstandings in a row, a technical error, or an **echo of a message sent from
   the app** (`smb_message_echoes`) — the human started answering, the bot steps aside.
-- **Pause:** `paused_until = now + handoff.pause_minutes` (default 60), renewed on every echo.
+- **Pause:** `paused_until = now + handoff.pause_minutes` (default 60, renewed on every echo; from
+  track H: until staff hand back, with 4 h without a staff reply as safety net, D-015).
 - **Back to the bot:** the pause expires, or the "hand back to bot" button in the panel.
 - **Staff alert:** a card in the panel + a message to the configured staff numbers.
 
@@ -502,6 +539,11 @@ stay cached). RAG with pgvector only when a tenant's textual knowledge exceeds ~
 tokens. The `vector` extension is already created in the initial migration.
 
 ## 12. Panel (MVP)
+
+**Scope extended by D-013 (track H):** besides orders, the panel edits the persona and the human-pace
+settings (draft → publish, admin role), runs a WhatsApp-like simulator of the draft, and shows
+conversations with bot, staff and customer messages and the order in progress, where staff take
+over and hand back.
 
 Decided: an **orders panel** in the MVP (real-time list via SSE, sound alert, status changes
 that notify the customer) + **a WhatsApp message to staff**. Human service happens **in the

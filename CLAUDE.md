@@ -1,10 +1,11 @@
 # auto-msg-backend — Instruções para Claude
 
-Backend da plataforma multi-tenant de atendimento no WhatsApp (Cloud API oficial) com motor
-híbrido: fluxos determinísticos + LLM com ferramentas. Primeiro cliente: restaurante em Bonfim
+Backend da plataforma multi-tenant de atendimento humanizado no WhatsApp (Cloud API oficial):
+LLM com ferramentas e persona por empresa + regras determinísticas. Primeiro cliente: restaurante em Bonfim
 Paulista-SP. Java 21, Spring Boot 4.1, Maven multi-módulo, PostgreSQL 17 + pgvector, Flyway.
 Visão: [`README.md`](README.md); arquitetura: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md);
-decisões técnicas: [`docs/adr/`](docs/adr/README.md); próximo trabalho:
+decisões técnicas: [`docs/adr/`](docs/adr/README.md) (direção atual: ADR-011, atendimento
+humanizado); próximo trabalho (trilha H):
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 O painel web vive em repositório separado (`../auto-msg-frontend`, criado no M8): **não
@@ -77,7 +78,8 @@ Regras (verificadas por `ArchitectureTest`):
   (`tenant_channel.access_token_ref`).
 - **Fatos de negócio só por ferramentas** (D-007). O LLM nunca é fonte de preço, horário, taxa
   ou disponibilidade.
-- **Pedido só é confirmado por ação determinística** (clique no botão de confirmação, D-006),
+- **Pedido só é confirmado por ação determinística** (toque no botão ou confirmação clara em
+  texto logo após o resumo, reconhecida por regra fixa — D-006 revisada pela D-016),
   nunca por ferramenta chamada pelo LLM.
 - **Webhook:** valida `X-Hub-Signature-256` sobre o corpo cru, grava e responde 200; nada de
   processamento síncrono no controller.
@@ -85,10 +87,16 @@ Regras (verificadas por `ArchitectureTest`):
   `idempotency_key`, `confirmation_wamid`).
 - **Janela de 24h:** fora dela só template aprovado; a janela conta a partir de mensagens do
   cliente (ecos do app não contam).
-- **Custo:** toda chamada de LLM registra uso/custo por tenant; minimizar o número de mensagens
-  enviadas (cada uma é cobrada).
+- **Custo:** toda chamada de LLM ou transcrição registra uso/custo por tenant; no máximo 2 mensagens
+  por resposta (D-014), cada uma é cobrada.
 - **LGPD:** não logar conteúdo de mensagem nem telefone completo em nível INFO; enviar ao LLM
   só o necessário.
+- **Atendimento humanizado** (D-012, ADR-011): o bot nunca diz que é humano (perguntado, diz que
+  é o assistente virtual da empresa e oferece chamar alguém); nada de "digite 1"; botões e listas
+  só para escolhas reais, decididos pelo `ResponseComposer`; textos fixos seguem a persona.
+- **Ritmo humano sem bloquear threads:** "digitando" e atrasos são agendados na fila de saída
+  (`available_at`), nunca com `sleep`; mensagens pendentes de um turno são canceladas se o
+  cliente escrever de novo.
 
 ## Stack
 

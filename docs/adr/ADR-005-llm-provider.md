@@ -1,6 +1,6 @@
 # ADR-005 — LLM provider behind our own port; start with the Claude API
 
-- **Status:** Accepted
+- **Status:** Accepted; audio goes to a separate speech-to-text provider ([ADR-012](ADR-012-audio-transcription.md))
 - **Date:** 2026-10-28
 
 ## Context
