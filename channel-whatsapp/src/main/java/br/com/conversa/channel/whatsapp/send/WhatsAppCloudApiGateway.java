@@ -82,6 +82,14 @@ public final class WhatsAppCloudApiGateway implements ChannelGateway {
                 buttons.buttons().forEach(button -> replies.addObject().put("type", "reply").putObject("reply")
                         .put("id", button.id()).put("title", button.title()));
             }
+            case OutboundMessage.Options options -> {
+                body.put("type", "interactive");
+                ObjectNode interactive = body.putObject("interactive").put("type", "list");
+                interactive.putObject("body").put("text", options.body());
+                ObjectNode action = interactive.putObject("action").put("button", options.buttonLabel());
+                ArrayNode rows = action.putArray("sections").addObject().putArray("rows");
+                options.rows().forEach(row -> rows.addObject().put("id", row.id()).put("title", row.title()));
+            }
         }
         return post(senderId, body);
     }
@@ -91,6 +99,16 @@ public final class WhatsAppCloudApiGateway implements ChannelGateway {
         ObjectNode body = base();
         body.put("status", "read");
         body.put("message_id", messageId);
+        return post(senderId, body);
+    }
+
+    /** Cloud API typing indicator: marks the message read and shows "typing..." (up to 25 s). */
+    @Override
+    public SendResult showTyping(String senderId, String messageId) {
+        ObjectNode body = base();
+        body.put("status", "read");
+        body.put("message_id", messageId);
+        body.putObject("typing_indicator").put("type", "text");
         return post(senderId, body);
     }
 

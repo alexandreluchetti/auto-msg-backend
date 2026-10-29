@@ -43,7 +43,22 @@ public record OutboundRequest(OutboundKind kind, String phoneNumberId, String wa
                 mapper.createObjectNode().put("message_id", messageId).toString());
     }
 
-    /** Every kind except {@link OutboundKind#READ}. */
+    /** Typing indicator on the received message {@code messageId}; also marks it read. */
+    public static OutboundRequest typing(String phoneNumberId, String waId, String messageId, ObjectMapper mapper) {
+        return new OutboundRequest(OutboundKind.TYPING, phoneNumberId, waId,
+                mapper.createObjectNode().put("message_id", messageId).toString());
+    }
+
+    /** A list of up to 10 options, opened by a button labeled {@code buttonLabel}. */
+    public static OutboundRequest options(String phoneNumberId, String waId, String body, String buttonLabel,
+                                          List<OutboundMessage.Button> rows, ObjectMapper mapper) {
+        ObjectNode payload = mapper.createObjectNode().put("body", body).put("button", buttonLabel);
+        ArrayNode values = payload.putArray("rows");
+        rows.forEach(row -> values.addObject().put("id", row.id()).put("title", row.title()));
+        return new OutboundRequest(OutboundKind.LIST, phoneNumberId, waId, payload.toString());
+    }
+
+    /** Every kind except the status-only ones (read receipt, typing). */
     OutboundMessage toMessage(ObjectMapper mapper) {
         JsonNode payload = mapper.readTree(payloadJson);
         return switch (kind) {
@@ -60,7 +75,14 @@ public record OutboundRequest(OutboundKind kind, String phoneNumberId, String wa
                         new OutboundMessage.Button(button.path("id").asString(), button.path("title").asString())));
                 yield new OutboundMessage.Buttons(waId, payload.path("body").asString(), buttons);
             }
-            case READ -> throw new IllegalStateException("A read receipt is not a message");
+            case LIST -> {
+                List<OutboundMessage.Button> rows = new ArrayList<>();
+                payload.path("rows").forEach(row -> rows.add(
+                        new OutboundMessage.Button(row.path("id").asString(), row.path("title").asString())));
+                yield new OutboundMessage.Options(waId, payload.path("body").asString(), payload.path("button").asString(),
+                        rows);
+            }
+            case READ, TYPING -> throw new IllegalStateException("A status update is not a message");
         };
     }
 

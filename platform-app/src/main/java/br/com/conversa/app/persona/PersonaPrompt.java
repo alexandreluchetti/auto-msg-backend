@@ -10,8 +10,8 @@ import java.util.regex.Pattern;
 
 /**
  * Renders a prompt template with a tenant's configuration (ADR-011): {@code {{persona}}} becomes
- * the persona block, {@code {{a.b}}} the text at that path of the configuration. Pure: same
- * template and configuration, same prompt, so the provider caches it.
+ * the persona block, {@code {{style}}} the delivery rules, {@code {{a.b}}} the text at that path of
+ * the configuration. Pure: same template and configuration, same prompt, so the provider caches it.
  */
 public final class PersonaPrompt {
 
@@ -43,7 +43,11 @@ public final class PersonaPrompt {
         StringBuilder out = new StringBuilder();
         while (matcher.find()) {
             String name = matcher.group(1);
-            String value = "persona".equals(name) ? personaBlock(config) : text(config, name);
+            String value = switch (name) {
+                case "persona" -> personaBlock(config);
+                case "style" -> styleBlock(config);
+                default -> text(config, name);
+            };
             matcher.appendReplacement(out, Matcher.quoteReplacement(value));
         }
         matcher.appendTail(out);
@@ -78,6 +82,20 @@ public final class PersonaPrompt {
             samples.forEach(sample -> lines.add("  - \"" + sample + "\""));
         }
         return String.join("\n", lines);
+    }
+
+
+    /** How answers are delivered (ADR-011): how many messages, and when to offer options. */
+    static String styleBlock(JsonNode config) {
+        int maxBubbles = Math.clamp(config.path("humanization").path("maxBubbles").asInt(2), 1, 2);
+        String split = maxBubbles == 1
+                ? "- Responda sempre numa mensagem só."
+                : "- Se ficar mais natural, divida a resposta em duas mensagens, como as pessoas fazem no WhatsApp "
+                        + "(por exemplo: a resposta e, depois, uma pergunta). Para isso, ponha uma linha só com --- "
+                        + "entre as duas. Nunca mais de duas; na maioria das vezes, uma basta.";
+        return split + "\n- Quando o cliente precisar escolher entre poucas opções reais de um item (tamanho, sabor, "
+                + "borda) ou entre entrega e retirada, chame offer_options em vez de listar as opções no texto. "
+                + "Para perguntas abertas (endereço, observações), apenas pergunte.";
     }
 
     private static String text(JsonNode config, String path) {

@@ -60,6 +60,20 @@ public class AssistantEngine {
             {"type": "object", "additionalProperties": false, "required": ["reason"], "properties": {
               "reason": {"type": "string", "description": "Motivo em poucas palavras, para a equipe"}
             }}""");
+    /**
+     * Control tool every pack gets (ADR-011): the assistant asks the customer to pick one of a few
+     * options; the composer shows them as buttons or a list. Ends the turn.
+     */
+    static final ToolSpec OFFER_OPTIONS = new ToolSpec("offer_options", """
+            Mostra ao cliente uma pergunta com opções para tocar, quando ele precisa escolher uma entre \
+            poucas alternativas reais (tamanho, sabor, borda, entrega ou retirada). Use só quando \
+            facilitar; para perguntas abertas, apenas pergunte. As opções devem vir das ferramentas. \
+            Depois de chamar, não escreva mais nada: a pergunta e as opções são a sua resposta.""", """
+            {"type": "object", "additionalProperties": false, "required": ["question", "options"], "properties": {
+              "question": {"type": "string", "description": "Pergunta curta, no tom da conversa"},
+              "options": {"type": "array", "minItems": 2, "maxItems": 10,
+                          "items": {"type": "string", "maxLength": 24}}
+            }}""");
     private static final int MAX_TEXT = 4000;
     private static final DateTimeFormatter NOW = DateTimeFormatter.ofPattern("EEEE, dd/MM/yyyy, HH:mm",
             Locale.of("pt", "BR"));
@@ -70,8 +84,11 @@ public class AssistantEngine {
                     Duration duration);
     }
 
-    /** Everything one answer needs; {@code history} ends with the customer's unanswered messages. */
-    /** @param systemPrompt the tenant's rendered prompt template (persona included) */
+    /**
+     * Everything one answer needs; {@code history} ends with the customer's unanswered messages.
+     *
+     * @param systemPrompt the tenant's rendered prompt template (persona included)
+     */
     public record Turn(TenantId tenant, UUID conversationId, SegmentPack pack, String systemPrompt, String configJson,
                        ZoneId zone,
                        List<StoredMessage> history, String defaultModel, boolean lastAttempt) {
@@ -82,12 +99,13 @@ public class AssistantEngine {
     /**
      * @param handoffDetail the assistant's reason when the outcome is {@link Outcome#HANDOFF}
      * @param checkout      the order summary to show when the outcome is {@link Outcome#CHECKOUT}
+     * @param options       choices offered with {@code offer_options}, shown as buttons or a list
      */
     public record Answer(String text, Outcome outcome, List<String> toolsCalled, String handoffDetail,
-                         CheckoutRequest checkout) {
+                         CheckoutRequest checkout, List<String> options) {
 
         Answer(String text, Outcome outcome, List<String> toolsCalled) {
-            this(text, outcome, toolsCalled, null, null);
+            this(text, outcome, toolsCalled, null, null, List.of());
         }
     }
 
@@ -122,6 +140,7 @@ public class AssistantEngine {
                 .map(tool -> new ToolSpec(tool.name(), tool.description(), tool.inputSchema()))
                 .collect(Collectors.toCollection(ArrayList::new));
         specs.add(REQUEST_HUMAN);
+        specs.add(OFFER_OPTIONS);
         String system = turn.systemPrompt();
         List<LlmMessage> messages = new ArrayList<>(history(turn));
         List<String> toolsCalled = new ArrayList<>();
@@ -149,7 +168,20 @@ public class AssistantEngine {
                     if (handoff.isPresent()) {
                         toolsCalled.add(REQUEST_HUMAN.name());
                         return new Answer(null, Outcome.HANDOFF, toolsCalled,
-                                mapper.readTree(handoff.get().inputJson()).path("reason").asString(""), null);
+                                mapper.readTree(handoff.get().inputJson()).path("reason").asString(""), null, List.of());
+                    }
+                    var offer = toolCalls.stream().filter(call -> call.name().equals(OFFER_OPTIONS.name())).findFirst();
+                    if (offer.isPresent()) {
+                        toolsCalled.add(OFFER_OPTIONS.name());
+                        JsonNode input = mapper.readTree(offer.get().inputJson());
+                        List<String> options = new ArrayList<>();
+                        input.path("options").forEach(option -> options.add(option.asString()));
+                        String question = input.path("question").asString("").strip();
+                        String before = response.text();
+                        String text = before.isEmpty() ? question : before + "\n---\n" + question;
+                        if (options.size() >= 2) {
+                            return new Answer(text, Outcome.ANSWERED, toolsCalled, null, null, options);
+                        }
                     }
                     List<LlmContent> outcomes = new ArrayList<>();
                     for (LlmContent.ToolCall call : toolCalls) {
@@ -157,7 +189,7 @@ public class AssistantEngine {
                         ToolResult result = run(turn, tools.get(call.name()), call);
                         if (result.checkout() != null) {
                             return new Answer(result.checkout().summaryText(), Outcome.CHECKOUT, toolsCalled,
-                                    null, result.checkout());
+                                    null, result.checkout(), List.of());
                         }
                         outcomes.add(new LlmContent.ToolOutcome(call.id(), result.contentJson(), result.error()));
                     }

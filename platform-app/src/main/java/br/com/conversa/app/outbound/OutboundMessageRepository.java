@@ -6,6 +6,9 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Types;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +21,13 @@ import java.util.UUID;
  */
 @Repository
 public class OutboundMessageRepository {
+
+    private static final String ENQUEUE_AT = """
+            INSERT INTO outbound_message (idempotency_key, tenant_id, phone_number_id, wa_id, kind, payload,
+                                          available_at, turn_id, turn_seq)
+            VALUES (:key, :tenantId, :phoneNumberId, :waId, :kind, CAST(:payload AS jsonb), :availableAt, :turnId, :seq)
+            ON CONFLICT (idempotency_key) DO NOTHING
+            """;
 
     private static final String ENQUEUE = """
             INSERT INTO outbound_message (idempotency_key, tenant_id, phone_number_id, wa_id, kind, payload)
@@ -67,6 +77,27 @@ public class OutboundMessageRepository {
                 .param("waId", request.waId())
                 .param("kind", request.kind().name())
                 .param("payload", request.payloadJson())
+                .update() == 1;
+    }
+
+    /**
+     * Enqueues one message of a turn (ADR-011): sent at {@code availableAt}, grouped by
+     * {@code turnId} in the order {@code seq}.
+     *
+     * @return false when that idempotency key was already enqueued
+     */
+    public boolean enqueue(String idempotencyKey, TenantId tenant, OutboundRequest request, Instant availableAt,
+                           UUID turnId, int seq) {
+        return jdbc.sql(ENQUEUE_AT)
+                .param("key", idempotencyKey)
+                .param("tenantId", tenant == null ? null : tenant.value(), Types.OTHER)
+                .param("phoneNumberId", request.phoneNumberId())
+                .param("waId", request.waId())
+                .param("kind", request.kind().name())
+                .param("payload", request.payloadJson())
+                .param("availableAt", OffsetDateTime.ofInstant(availableAt, ZoneOffset.UTC))
+                .param("turnId", turnId, Types.OTHER)
+                .param("seq", seq)
                 .update() == 1;
     }
 

@@ -51,6 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "conversa.whatsapp.access-token=it-platform-token",
         "conversa.workers.enabled=false",
         "conversa.assistant.debounce=0s",
+        "conversa.assistant.pace-scale=0",
         "conversa.assistant.retry-delay=0s",
         "conversa.handoff.staff-alert-template=alerta_atendimento"
 })
@@ -236,6 +237,7 @@ class HandoffFlowIT {
                 .map(mapper::readTree)
                 .filter(body -> "text".equals(body.path("type").asString()) && CUSTOMER.equals(body.path("to").asString()))
                 .map(body -> PrivacyNotices.strip(body.path("text").path("body").asString()))
+                .filter(text -> !text.isEmpty())
                 .toList();
     }
 

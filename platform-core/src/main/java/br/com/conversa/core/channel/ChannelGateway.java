@@ -15,4 +15,10 @@ public interface ChannelGateway {
 
     /** Marks a received message as read, which also marks the earlier ones in the chat. */
     SendResult markAsRead(String senderId, String messageId);
+
+    /**
+     * Marks a received message as read and shows "typing..." to the customer until the next
+     * message or for a few seconds (WhatsApp: 25 s). Only when an answer follows.
+     */
+    SendResult showTyping(String senderId, String messageId);
 }

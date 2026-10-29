@@ -28,6 +28,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import javax.crypto.Mac;
@@ -51,6 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "conversa.whatsapp.access-token=it-platform-token",
         "conversa.workers.enabled=false",
         "conversa.assistant.debounce=0s",
+        "conversa.assistant.pace-scale=0",
         "conversa.assistant.retry-delay=0s"
 })
 @AutoConfigureMockMvc
@@ -158,7 +160,7 @@ class ConversationFlowIT {
         assertThat(request.tools()).extracting(spec -> spec.name())
                 .containsExactly("search_menu", "get_business_hours", "get_delivery_fee", "get_business_info",
                         "add_to_cart", "update_cart", "view_cart", "set_fulfillment", "set_payment", "start_checkout",
-                        "request_human");
+                        "request_human", "offer_options");
         var toolResult = (LlmContent.ToolOutcome) llm.requests().get(1).messages().getLast().content().getFirst();
         assertThat(toolResult.contentJson()).contains("R$ 39,90");
 
@@ -168,6 +170,43 @@ class ConversationFlowIT {
         assertThat(cost.get("calls")).isEqualTo(2L);
         // 2 x (1000 in) + 100 + 50 out + 2 x 500 cache reads at Opus 5.5 prices
         assertThat((BigDecimal) cost.get("cost")).isEqualByComparingTo("0.011200");
+    }
+
+    @Test
+    void answersInTwoMessagesWithTypingBeforeEach() throws Exception {
+        llm.then(ScriptedLlm.text("Tem sim! A calabresa sai por R$ 39,90.\n---\nQuer pedir uma?"));
+
+        postWebhook(textMessage("wamid.IN1", "Tem calabresa?"));
+        inboundWorker.runOnce();
+        replyWorker.runOnce();
+        senderWorker.runOnce();
+
+        List<JsonNode> sent = graph.requestBodies().stream().map(mapper::readTree).toList();
+        assertThat(sent).extracting(body -> body.has("typing_indicator") ? "typing"
+                        : PrivacyNotices.strip(body.path("text").path("body").asString()))
+                .containsExactly("typing", "Tem sim! A calabresa sai por R$ 39,90.", "typing", "Quer pedir uma?");
+        assertThat(sent.getFirst().path("message_id").asString()).isEqualTo("wamid.IN1");
+        assertThat(messages()).containsExactly("IN:Tem calabresa?",
+                "OUT:Tem sim! A calabresa sai por R$ 39,90.\n\nQuer pedir uma?");
+    }
+
+    @Test
+    void offeredOptionsArriveAsButtons() throws Exception {
+        llm.then(ScriptedLlm.toolCall("t1", "offer_options",
+                "{\"question\": \"Qual tamanho?\", \"options\": [\"Média\", \"Grande\"]}"));
+
+        postWebhook(textMessage("wamid.IN1", "Quero uma calabresa"));
+        inboundWorker.runOnce();
+        replyWorker.runOnce();
+        senderWorker.runOnce();
+
+        JsonNode buttons = graph.requestBodies().stream().map(mapper::readTree)
+                .filter(body -> "interactive".equals(body.path("type").asString())).findFirst().orElseThrow();
+        assertThat(buttons.path("interactive").path("type").asString()).isEqualTo("button");
+        assertThat(PrivacyNotices.strip(buttons.path("interactive").path("body").path("text").asString()))
+                .isEqualTo("Qual tamanho?");
+        assertThat(buttons.path("interactive").path("action").path("buttons").path(1).path("reply").path("title")
+                .asString()).isEqualTo("Grande");
     }
 
     @Test

@@ -82,6 +82,34 @@ class WhatsAppCloudApiGatewayTest {
     }
 
     @Test
+    void sendsAnOptionList() {
+        gateway.send(PHONE_NUMBER_ID, new OutboundMessage.Options(CUSTOMER, "Qual tamanho?", "Ver tamanhos", List.of(
+                new OutboundMessage.Button("size:m", "Média"), new OutboundMessage.Button("size:g", "Grande"))));
+
+        JsonNode interactive = mapper.readTree(graph.requests().getFirst().body()).path("interactive");
+        assertThat(interactive.path("type").asString()).isEqualTo("list");
+        assertThat(interactive.path("body").path("text").asString()).isEqualTo("Qual tamanho?");
+        assertThat(interactive.path("action").path("button").asString()).isEqualTo("Ver tamanhos");
+        JsonNode rows = interactive.path("action").path("sections").path(0).path("rows");
+        assertThat(rows).hasSize(2);
+        assertThat(rows.path(1).path("id").asString()).isEqualTo("size:g");
+        assertThat(rows.path(1).path("title").asString()).isEqualTo("Grande");
+    }
+
+    @Test
+    void showsTheTypingIndicator() {
+        graph.respond(200, "{\"success\":true}");
+
+        SendResult result = gateway.showTyping(PHONE_NUMBER_ID, "wamid.TEXT0001");
+
+        assertThat(result).isEqualTo(new SendResult.Sent(null));
+        JsonNode body = mapper.readTree(graph.requests().getFirst().body());
+        assertThat(body.path("status").asString()).isEqualTo("read");
+        assertThat(body.path("message_id").asString()).isEqualTo("wamid.TEXT0001");
+        assertThat(body.path("typing_indicator").path("type").asString()).isEqualTo("text");
+    }
+
+    @Test
     void marksMessageAsRead() {
         graph.respond(200, "{\"success\":true}");
 

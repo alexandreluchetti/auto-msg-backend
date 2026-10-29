@@ -52,15 +52,19 @@ public class SenderWorker {
             log.warn("Outbound {} {} not sent: window closed", row.id(), request.kind());
             return;
         }
-        SendResult result = request.kind() == OutboundKind.READ
-                ? gateway.markAsRead(request.phoneNumberId(), request.readMessageId(mapper))
-                : gateway.send(request.phoneNumberId(), request.toMessage(mapper));
+        SendResult result = switch (request.kind()) {
+            case READ -> gateway.markAsRead(request.phoneNumberId(), request.readMessageId(mapper));
+            case TYPING -> gateway.showTyping(request.phoneNumberId(), request.readMessageId(mapper));
+            default -> gateway.send(request.phoneNumberId(), request.toMessage(mapper));
+        };
         switch (result) {
             case SendResult.Sent sent -> {
                 repository.markSent(row.id(), sent.messageId());
                 log.info("Outbound {} {} sent", row.id(), request.kind());
             }
-            case SendResult.Failed failed when failed.retryable() && row.attempts() < properties.maxAttempts() -> {
+            // A late "typing..." is worse than none: typing indicators are never retried.
+            case SendResult.Failed failed when failed.retryable() && request.kind() != OutboundKind.TYPING
+                    && row.attempts() < properties.maxAttempts() -> {
                 var delay = properties.retryDelay(row.attempts(), ThreadLocalRandom.current().nextDouble());
                 repository.reschedule(row.id(), delay, describe(failed));
                 log.warn("Outbound {} {} failed ({}), retry {} in {}", row.id(), request.kind(), failed.code(),

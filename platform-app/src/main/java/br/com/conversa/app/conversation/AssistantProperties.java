@@ -17,6 +17,7 @@ import java.time.Duration;
  * @param replyLease      how long a claimed conversation stays reserved for the reply worker
  * @param maxAttempts     attempts on temporary LLM failures before the fallback message is sent
  * @param retryDelay      wait before retrying a temporary LLM failure
+ * @param paceScale       multiplies the human-pace delays (1; tests use 0 to send at once)
  */
 @ConfigurationProperties("conversa.assistant")
 public record AssistantProperties(
@@ -28,5 +29,6 @@ public record AssistantProperties(
         @DefaultValue("30") int historyMessages,
         @DefaultValue("2m") Duration replyLease,
         @DefaultValue("3") int maxAttempts,
-        @DefaultValue("5s") Duration retryDelay) {
+        @DefaultValue("5s") Duration retryDelay,
+        @DefaultValue("1") double paceScale) {
 }

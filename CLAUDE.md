@@ -214,6 +214,10 @@ versionados.
   versionados; o `prompts/system.md` do pack é semeado como padrão publicado). Config com rascunho e
   publicada em `TenantService` (`saveDraft`, `publishDraft`, `effectiveDraftConfig`). Teste:
   `PersonaVersionsIT`.
+- Composição e ritmo (H3): `app.compose` — `ResponseComposer` (até 2 balões, marcador `---`,
+  `offer_options` vira botões ou lista), `HumanPace` (atrasos), `TurnSender` (turno na fila com
+  `available_at`). Nos ITs que enviam respostas use `conversa.assistant.pace-scale=0`; o
+  `HumanPaceIT` testa os atrasos reais.
 - Eval do M5: `AssistantEval` (`eval/restaurant-questions.json`) chama a **API real e gera
   custo**: só rode com aprovação explícita do usuário e `ANTHROPIC_API_KEY`
   (`./mvnw -pl platform-app -am test -Dtest=AssistantEval -Deval=true -Dsurefire.failIfNoSpecifiedTests=false`);
