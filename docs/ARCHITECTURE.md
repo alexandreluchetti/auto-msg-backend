@@ -250,9 +250,12 @@ flowchart LR
   `TurnSender` enqueues the turn (`turn_id`, `turn_seq`, `available_at` from `HumanPace`); the
   assistant marks splits with `---` and offers choices with the `offer_options` control tool
   (buttons up to 3, a list up to 10). Settings: `humanization` in the tenant configuration.
-- **Grouping and interruptions.** The silence window is per tenant (default 4 s). A customer message
+- **Grouping and interruptions (implemented, H4).** The silence window is per tenant (default 4 s). A customer message
   that arrives while a turn still has pending bubbles cancels them (`turn_id`), and the answer is
   rebuilt with the new message.
+  `TurnCancellation` marks the pending rows `CANCELLED` and keeps in the history only the messages
+  already sent (or removes the stored answer); `conversa.assistant.debounce`, when set, overrides
+  the tenant window (tests).
 - **Memory.** Cart slots stay in the pack's conversation state; `conversation_summary` keeps a
   rolling summary of long conversations; `customer_profile` keeps the preferred name, last
   address/neighborhood and latest orders, under retention and erasure.
