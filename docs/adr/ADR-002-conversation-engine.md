@@ -1,6 +1,6 @@
 # ADR-002 — Hybrid conversation engine: deterministic flows + LLM with tools
 
-- **Status:** Accepted
+- **Status:** Accepted, refined by [ADR-011](ADR-011-humanized-service.md) (free conversation by default; flows in YAML dropped; interactive messages chosen by the response composer)
 - **Date:** 2026-10-28
 
 ## Context

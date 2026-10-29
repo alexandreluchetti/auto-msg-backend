@@ -22,7 +22,7 @@ unofficial WhatsApp Web automation.
 Staff answer customers in the WhatsApp Business app itself. When staff reply to a customer
 from the app, the bot stops answering that conversation for a while; it also hands over when
 the customer asks for an attendant or the bot fails to understand several times in a row
-(ADR-008).
+(ADR-008). *Revised by D-015: the pause lasts until staff hand the conversation back.*
 
 ### D-004 — How orders reach the staff
 Every confirmed order shows up in a web panel with a sound alert **and** is sent as a WhatsApp
@@ -37,7 +37,8 @@ payment in the MVP.
 ### D-006 — Orders are confirmed only by the customer's explicit action
 The bot shows an order summary built from the database (items, prices, fee, total, address,
 payment) with a confirmation button. Only the customer's click on that button creates the
-order; the LLM can never confirm one.
+order; the LLM can never confirm one. *Revised by D-016: a clear confirmation in text right after the
+summary also counts.*
 
 ### D-007 — The bot never invents business facts
 Prices, opening hours, fees, availability and policies come only from the business's own data.
@@ -61,11 +62,45 @@ Every status change made in the panel notifies the customer on WhatsApp: being p
 delivery or ready for pickup, completed, and cancelled. Each notice is a paid message; outside the
 24h window it needs an approved template.
 
+### D-012 — Humanized service
+Talking to the business on WhatsApp must feel like talking to a person of its staff: natural,
+informal, short messages, emojis in moderation, free conversation (buttons and lists only when
+they really help, never "digite 1"), order data gathered along the way in any order, memory of
+the customer, and the unexpected (audio, photos, complaints, jokes, changes of mind) handled as a
+person would. The bot never claims to be human: asked directly, it says it is the business's
+virtual assistant and offers to call someone. It never invents a fact (D-007). See ADR-011.
+
+### D-013 — Persona, settings and simulator in the panel
+Each business sets its assistant's persona (name, tone, formality, emojis, typical expressions,
+greeting and farewell, sample replies) and the human-pace settings in the panel, tries them in a
+WhatsApp-like simulator and then publishes them. The panel also shows conversations (bot, staff
+and customer messages, the order in progress) and lets staff take over and hand back. This moves
+the "conversations panel" out of phase 2.
+
+### D-014 — Up to 2 messages per answer
+An answer may be split into at most 2 WhatsApp messages (configurable 1–2 per business), only
+where it reads naturally, since every message is billed.
+
+### D-015 — The bot returns when staff hand back
+After a handoff, the bot stays paused in that conversation until staff hand it back in the panel,
+or after 4 hours without any staff reply (safety net). Staff can also take a conversation over.
+Replaces the 60-minute pause of D-003.
+
+### D-016 — Order confirmation by button or clear text
+The summary is still built by code from the database. The customer confirms by tapping
+"Confirmar pedido" or by a clear confirmation in text right after the latest summary ("pode
+mandar", "confirmo", "fechado"...), recognized by a fixed rule, never by the LLM. Anything
+ambiguous makes the bot ask again. Revises D-006.
+
+### D-017 — Voice messages are transcribed
+Voice messages are transcribed (OpenAI API, ADR-012) and answered like text; the audio is not
+kept. Images are read by the assistant. This moves voice transcription out of phase 2.
+
 ## Technical defaults (easy to change)
 
-- Handoff pause after a staff reply from the app: 60 minutes, renewed on every reply,
-  configurable per business.
-- Inbound debounce: the bot waits ~2 s of silence and answers a burst of customer messages
+- Handoff safety net (D-015): the bot returns after 4 hours without a staff reply, renewed on
+  every reply, configurable per business (`handoff.pauseMinutes`, 5–1440 min; was 60).
+- Inbound grouping (ADR-011): the bot waits 4 s of silence (2–15 s per business) and answers a burst of customer messages
   together, to save paid messages and LLM calls.
 - Privacy notice with a link to the policy on the first contact of each customer.
 - Message retention: 180 days by default, configurable per business; orders are kept, with
@@ -139,6 +174,18 @@ delivery or ready for pickup, completed, and cancelled. Each notice is a paid me
 - Backups: one at start and one a day, kept 14 days on the server; copying them to another
   provider (rclone) is recommended and needs that storage account. Restore drills go into a new
   database, never over the live one.
+- Human pace (ADR-011): typing indicator as soon as the answer is being prepared; each message
+  waits 40 ms per character, at least 1.2 s and at most 6 s (per business). A customer message
+  that arrives before the pending messages of an answer go out cancels them; the answer is
+  rebuilt.
+- Persona and human-pace settings are edited by panel users with the admin role; staff see
+  conversations and orders and take over or hand back. The base prompt template is versioned by
+  the platform, not edited in the panel. The simulator uses the real LLM (its cost is recorded for
+  the business) and never sends WhatsApp messages.
+- Customer memory: preferred name, last address and neighborhood and the latest 3 orders, kept
+  under retention, erased on request, and mentioned in the privacy notice.
+- Messages outside opening hours use the registered opening hours, with a configurable message;
+  there is no separate "service hours".
 - Local development ports: PostgreSQL on `5433`, API on `8081` (5432/8080 are used by other
   local projects).
 
@@ -146,7 +193,6 @@ delivery or ready for pickup, completed, and cancelled. Each notice is a paid me
 
 - Table reservations: decided after the pilot (simple request vs. with capacity).
 - Pix generated by the bot and payment link (phase 2).
-- Transcription of voice messages (phase 2).
 - Marketing campaigns with opt-in (phase 2).
-- Conversations panel and knowledge base/menu editor (phase 2).
+- Knowledge base/menu editor in the panel (phase 2; the conversations panel moved to D-013).
 - Rename the code base package `br.com.conversa` to match the final project name.

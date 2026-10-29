@@ -1,6 +1,6 @@
 # ADR-008 — Human handoff through the WhatsApp Business app (coexistence), paused by echoes
 
-- **Status:** Accepted
+- **Status:** Accepted, refined by [ADR-011](ADR-011-humanized-service.md) (the bot returns when staff hand the conversation back, or after 4 h without a staff reply, D-015)
 - **Date:** 2026-10-28
 
 ## Context
