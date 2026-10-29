@@ -4,7 +4,7 @@
   "title": "Restaurant tenant configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["business", "assistant", "fulfillment", "paymentMethods", "staffNumbers", "handoff"],
+  "required": ["business", "persona", "fulfillment", "paymentMethods", "staffNumbers", "handoff"],
   "properties": {
     "business": {
       "type": "object",
@@ -16,13 +16,26 @@
         "city": { "type": "string", "maxLength": 80 }
       }
     },
-    "assistant": {
+    "persona": {
+      "description": "How the assistant talks, like someone of the staff (D-012, D-013).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "tone"],
+      "required": ["name", "tone", "formality", "emojis"],
       "properties": {
         "name": { "type": "string", "minLength": 2, "maxLength": 40 },
-        "tone": { "enum": ["friendly", "formal", "casual"] }
+        "tone": { "enum": ["friendly", "formal", "casual"] },
+        "formality": { "description": "1 very informal ... 5 formal", "type": "integer", "minimum": 1, "maximum": 5 },
+        "emojis": { "enum": ["none", "low", "moderate"] },
+        "expressions": {
+          "description": "Typical expressions of the staff, e.g. \"Opa!\", \"Show!\"",
+          "type": "array", "maxItems": 10, "items": { "type": "string", "minLength": 1, "maxLength": 40 }
+        },
+        "greeting": { "type": "string", "maxLength": 120 },
+        "farewell": { "type": "string", "maxLength": 120 },
+        "sampleReplies": {
+          "description": "How the staff answers, to set the tone (never a source of facts)",
+          "type": "array", "maxItems": 5, "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
       }
     },
     "fulfillment": {

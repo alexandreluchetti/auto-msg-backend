@@ -1,6 +1,7 @@
 package br.com.conversa.app.conversation;
 
 import br.com.conversa.app.conversation.ConversationRepository.StoredMessage;
+import br.com.conversa.app.persona.PersonaPrompt;
 import br.com.conversa.app.tenant.TenantConfigResolver;
 import br.com.conversa.core.business.BusinessDirectory;
 import br.com.conversa.core.business.DeliveryZone;
@@ -138,7 +139,8 @@ class AssistantEval {
             history.add(new StoredMessage("IN", "CUSTOMER", "wamid.eval", question.path("question").asString(),
                     clock.instant()));
             BigDecimal before = cost[0];
-            var answer = engine.answer(new AssistantEngine.Turn(TENANT, UUID.randomUUID(), pack, turnConfig, zone,
+            String prompt = PersonaPrompt.render(pack.defaultPromptTemplate(), mapper.readTree(turnConfig));
+            var answer = engine.answer(new AssistantEngine.Turn(TENANT, UUID.randomUUID(), pack, prompt, turnConfig, zone,
                     history, model, true));
             results.add(grade(question, answer, realPrices, cost[0].subtract(before)));
             System.out.printf("%-12s %s%n", id, results.getLast().passed() ? "PASS" : "FAIL " + results.getLast().failures());

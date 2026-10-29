@@ -1,5 +1,5 @@
 {
-  "assistant": { "name": "Assistente", "tone": "friendly" },
+  "persona": { "name": "Assistente", "tone": "friendly", "formality": 2, "emojis": "low", "expressions": [], "sampleReplies": [] },
   "fulfillment": { "delivery": true, "pickup": true },
   "paymentMethods": ["cash", "card_on_delivery"],
   "staffNumbers": [],

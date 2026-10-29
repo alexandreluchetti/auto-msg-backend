@@ -1,6 +1,7 @@
 package br.com.conversa.app.conversation;
 
 import br.com.conversa.app.conversation.ConversationRepository.StoredMessage;
+import br.com.conversa.app.persona.PersonaTexts;
 import br.com.conversa.core.llm.LlmClient;
 import br.com.conversa.core.llm.LlmContent;
 import br.com.conversa.core.llm.LlmException;
@@ -47,10 +48,6 @@ public class AssistantEngine {
 
     private static final Logger log = LoggerFactory.getLogger(AssistantEngine.class);
 
-    static final String FALLBACK_TEXT = "Desculpe, não consegui responder agora. Pode mandar sua mensagem de novo "
-            + "daqui a pouco? A equipe do restaurante também acompanha esta conversa.";
-    static final String REFUSAL_TEXT = "Desculpe, não posso ajudar com isso. Posso ajudar com o cardápio, "
-            + "horários, entrega ou formas de pagamento?";
     /**
      * Control tool every pack gets (ADR-002): the assistant hands the conversation to staff. The
      * engine stops at the call; the handoff itself is deterministic ({@link HandoffService}).
@@ -74,7 +71,9 @@ public class AssistantEngine {
     }
 
     /** Everything one answer needs; {@code history} ends with the customer's unanswered messages. */
-    public record Turn(TenantId tenant, UUID conversationId, SegmentPack pack, String configJson, ZoneId zone,
+    /** @param systemPrompt the tenant's rendered prompt template (persona included) */
+    public record Turn(TenantId tenant, UUID conversationId, SegmentPack pack, String systemPrompt, String configJson,
+                       ZoneId zone,
                        List<StoredMessage> history, String defaultModel, boolean lastAttempt) {
     }
 
@@ -123,7 +122,7 @@ public class AssistantEngine {
                 .map(tool -> new ToolSpec(tool.name(), tool.description(), tool.inputSchema()))
                 .collect(Collectors.toCollection(ArrayList::new));
         specs.add(REQUEST_HUMAN);
-        String system = turn.pack().systemPrompt(turn.configJson());
+        String system = turn.systemPrompt();
         List<LlmMessage> messages = new ArrayList<>(history(turn));
         List<String> toolsCalled = new ArrayList<>();
 
@@ -137,13 +136,13 @@ public class AssistantEngine {
 
                 if (response.stopReason() == LlmResponse.StopReason.REFUSAL) {
                     log.info("Model refused to answer conversation {}", turn.conversationId());
-                    return new Answer(REFUSAL_TEXT, Outcome.REFUSED, toolsCalled);
+                    return new Answer(PersonaTexts.refusal(config), Outcome.REFUSED, toolsCalled);
                 }
                 List<LlmContent.ToolCall> toolCalls = response.toolCalls();
                 if (response.stopReason() == LlmResponse.StopReason.TOOL_USE && !toolCalls.isEmpty()) {
                     if (round >= properties.maxToolRounds()) {
                         log.warn("Conversation {} exceeded {} tool rounds", turn.conversationId(), properties.maxToolRounds());
-                        return new Answer(FALLBACK_TEXT, Outcome.FALLBACK, toolsCalled);
+                        return new Answer(PersonaTexts.fallback(config), Outcome.FALLBACK, toolsCalled);
                     }
                     messages.add(response.asAssistantMessage());
                     var handoff = toolCalls.stream().filter(call -> call.name().equals(REQUEST_HUMAN.name())).findFirst();
@@ -169,7 +168,11 @@ public class AssistantEngine {
                 if (text.isEmpty() || response.stopReason() != LlmResponse.StopReason.END_TURN) {
                     log.warn("Conversation {} got no usable answer (stop reason {})", turn.conversationId(),
                             response.stopReason());
-                    return new Answer(FALLBACK_TEXT, Outcome.FALLBACK, toolsCalled);
+                    return new Answer(PersonaTexts.fallback(config), Outcome.FALLBACK, toolsCalled);
+                }
+                if (PersonaTexts.claimsToBeHuman(text)) {
+                    log.warn("Conversation {}: the answer claimed to be human; replaced", turn.conversationId());
+                    text = PersonaTexts.virtualAssistant(config);
                 }
                 return new Answer(text.length() > MAX_TEXT ? text.substring(0, MAX_TEXT) : text, Outcome.ANSWERED,
                         toolsCalled);
@@ -179,7 +182,7 @@ public class AssistantEngine {
                 throw e;
             }
             log.warn("Conversation {} answered with the fallback message: {}", turn.conversationId(), e.getMessage());
-            return new Answer(FALLBACK_TEXT, Outcome.FALLBACK, toolsCalled);
+            return new Answer(PersonaTexts.fallback(config), Outcome.FALLBACK, toolsCalled);
         }
     }
 

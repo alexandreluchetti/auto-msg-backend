@@ -5,6 +5,8 @@ import br.com.conversa.app.conversation.ConversationRepository.ConversationView;
 import br.com.conversa.app.conversation.ConversationRepository.StoredMessage;
 import br.com.conversa.app.order.OrderService;
 import br.com.conversa.app.outbound.OutboundMessageRepository;
+import br.com.conversa.app.persona.PersonaPrompt;
+import br.com.conversa.app.persona.PromptTemplates;
 import br.com.conversa.app.privacy.PrivacyService;
 import br.com.conversa.app.outbound.OutboundRequest;
 import br.com.conversa.app.tenant.TenantService;
@@ -13,6 +15,7 @@ import br.com.conversa.core.business.BusinessDirectory;
 import br.com.conversa.core.channel.OutboundMessage;
 import br.com.conversa.core.llm.LlmException;
 import br.com.conversa.core.order.CheckoutRequest;
+import br.com.conversa.core.segment.SegmentPack;
 import br.com.conversa.core.tenant.TenantId;
 import br.com.conversa.llm.anthropic.AnthropicProperties;
 import org.slf4j.Logger;
@@ -54,6 +57,7 @@ public class ReplyWorker {
     private final HandoffProperties handoffProperties;
     private final OrderService orders;
     private final PrivacyService privacy;
+    private final PromptTemplates prompts;
     private final TransactionTemplate transactions;
     private final ObjectMapper mapper;
     private final Clock clock;
@@ -61,7 +65,7 @@ public class ReplyWorker {
     ReplyWorker(ConversationRepository conversations, AssistantEngine engine, TenantTransactions tenants,
                 TenantService tenantService, BusinessDirectory directory, OutboundMessageRepository outbound,
                 AssistantProperties properties, AnthropicProperties anthropic, HandoffService handoff,
-                HandoffProperties handoffProperties, OrderService orders, PrivacyService privacy,
+                HandoffProperties handoffProperties, OrderService orders, PrivacyService privacy, PromptTemplates prompts,
                 TransactionTemplate transactions,
                 ObjectMapper mapper, Clock clock) {
         this.conversations = conversations;
@@ -76,6 +80,7 @@ public class ReplyWorker {
         this.handoffProperties = handoffProperties;
         this.orders = orders;
         this.privacy = privacy;
+        this.prompts = prompts;
         this.transactions = transactions;
         this.mapper = mapper;
         this.clock = clock;
@@ -134,9 +139,10 @@ public class ReplyWorker {
                         HandoffReason.CUSTOMER_REQUEST, null, config));
                 return;
             }
-            var answer = engine.answer(new AssistantEngine.Turn(tenant, claim.conversationId(),
-                    tenantService.packOf(tenant), config.toString(),
-                    directory.openingHours(tenant).zone(), history, anthropic.defaultModel(),
+            SegmentPack pack = tenantService.packOf(tenant);
+            String prompt = PersonaPrompt.render(prompts.template(tenant, pack, PromptTemplates.Status.PUBLISHED), config);
+            var answer = engine.answer(new AssistantEngine.Turn(tenant, claim.conversationId(), pack, prompt,
+                    config.toString(), directory.openingHours(tenant).zone(), history, anthropic.defaultModel(),
                     claim.attempts() >= properties.maxAttempts()));
             int failures = answer.outcome() == AssistantEngine.Outcome.FALLBACK ? conversation.failureStreak() + 1 : 0;
             if (answer.outcome() == AssistantEngine.Outcome.HANDOFF || failures >= handoffProperties.failureThreshold()) {

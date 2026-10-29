@@ -233,10 +233,14 @@ flowchart LR
     IN -. new message while pending .-> PACE
 ```
 
-- **Persona and prompt.** `persona` in the tenant configuration renders into a versioned prompt
+- **Persona and prompt (implemented, H2).** `persona` in the tenant configuration renders into a versioned prompt
   template (`prompt_template`: segment default, optional tenant override, draft/published).
   Configuration has draft and published versions (`tenant_config_version`); the simulator runs the
   draft.
+  `PersonaPrompt` renders `{{persona}}` and `{{config.path}}` placeholders; `PromptTemplates`
+  seeds the pack's `prompts/system.md` as a new published segment default whenever it changes;
+  `TenantService.saveDraft` / `publishDraft` keep `tenant.config` as the published version.
+  `PersonaTexts` holds the per-tone fixed texts and replaces any answer that claims to be human.
 - **Composition.** The engine's answer goes through `ResponseComposer`, which splits it into at most
   `humanization.maxBubbles` (≤ 2, D-014) and turns a small set of options into an interactive list
   or buttons. Fixed texts (refusal, failure, handoff, confirmation) are deterministic, per tone.

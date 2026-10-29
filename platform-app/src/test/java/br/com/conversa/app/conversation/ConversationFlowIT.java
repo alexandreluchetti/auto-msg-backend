@@ -124,7 +124,7 @@ class ConversationFlowIT {
         llm.reset();
         graph.reset();
         tenant = tenantService.create("cantina", "Cantina", "restaurant",
-                "{\"business\": {\"name\": \"Cantina da Praça\"}, \"assistant\": {\"name\": \"Rita\"}}");
+                "{\"business\": {\"name\": \"Cantina da Praça\"}, \"persona\": {\"name\": \"Rita\"}}");
         channels.register(tenant, PHONE_NUMBER_ID, "100000000000001", null);
         importer.importMenu(tenant, """
                 code;category;name;price
@@ -153,7 +153,8 @@ class ConversationFlowIT {
         });
 
         var request = llm.requests().getFirst();
-        assertThat(request.system()).contains("Você é Rita", "Cantina da Praça");
+        assertThat(request.system()).contains("Seu nome é Rita", "restaurante Cantina da Praça",
+                "Nunca diga nem dê a entender que é uma pessoa");
         assertThat(request.tools()).extracting(spec -> spec.name())
                 .containsExactly("search_menu", "get_business_hours", "get_delivery_fee", "get_business_info",
                         "add_to_cart", "update_cart", "view_cart", "set_fulfillment", "set_payment", "start_checkout",
